@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#07080d">
+<title>商品管理 · 小黄车</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ff6a00'/%3E%3Cpath d='M8 10h16l-2 10H10z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#07080d; --panel:#10121a; --line:rgba(255,255,255,.085);
+    --text:#e9ebf3; --muted:#8d93a8; --dim:#6b7186;
+    --accent:#8b5cf6; --live:#ff3b5c; --warn:#fbbf24; --ok:#34d399;
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    min-height:100vh; color:var(--text);
+    background:
+      radial-gradient(900px 520px at 8% -12%, rgba(255,106,0,.13), transparent 60%),
+      radial-gradient(760px 420px at 102% -6%, rgba(139,92,246,.18), transparent 58%),
+      var(--bg);
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased; font-size:15px;
+  }
+  .topbar{
+    position:sticky; top:0; z-index:30; display:flex; align-items:center; gap:12px;
+    padding:10px 20px; background:rgba(9,10,16,.76);
+    backdrop-filter:blur(16px) saturate(140%); border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.4px; white-space:nowrap}
+  .brand .tag{font-size:10.5px; font-weight:600; letter-spacing:1px; color:#ffd9a8; background:rgba(255,106,0,.16); border:1px solid rgba(255,106,0,.4); padding:2px 7px; border-radius:6px}
+  .topbar .grow{flex:1}
+  .top-link{font-size:13px; color:#c9cee0; text-decoration:none; padding:7px 12px; border:1px solid var(--line); border-radius:9px; background:rgba(255,255,255,.04); white-space:nowrap}
+  .top-link:hover{background:rgba(255,255,255,.09); color:#fff}
+
+  .layout{display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:18px; max-width:1560px; margin:0 auto; padding:18px 20px 30px; align-items:start}
+  .main{min-width:0; display:flex; flex-direction:column; gap:14px}
+  .toolbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .stats{font-size:12.5px; color:var(--muted)}
+  .stats b{color:#e9ebf3; font-size:15px; margin:0 2px}
+  .toolbar .grow{flex:1}
+  .btn{
+    font:inherit; font-size:13px; font-weight:600; cursor:pointer;
+    padding:9px 14px; border-radius:10px; border:1px solid transparent;
+    transition:filter .18s, background .18s, border-color .18s;
+  }
+  .btn:focus-visible{outline:2px solid #c4b5fd; outline-offset:2px}
+  .btn.primary{background:linear-gradient(135deg,#9d6bff,#6d28d9); color:#fff}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .btn.ghost{background:rgba(255,255,255,.05); border-color:var(--line); color:#cfd3e4}
+  .btn.ghost:hover{background:rgba(255,255,255,.1)}
+  .btn:disabled{opacity:.45; cursor:not-allowed}
+  .btn.hide{display:none}
+  .status{
+    font-size:12px; color:#9aa1b8; line-height:1.7;
+    padding:9px 12px; border-radius:10px;
+    background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.06);
+  }
+  .status.ok{color:#9df3cf; border-color:rgba(52,211,153,.3); background:rgba(52,211,153,.08)}
+  .status.warn{color:#ffe0a3; border-color:rgba(251,191,36,.3); background:rgba(251,191,36,.08)}
+  .status.err{color:#ffb3c1; border-color:rgba(255,59,92,.3); background:rgba(255,59,92,.08)}
+
+  .server-box{
+    padding:12px 14px; border-radius:12px;
+    background:rgba(139,92,246,.07); border:1px solid rgba(139,92,246,.28);
+  }
+  .server-box.hide{display:none}
+  .srv-row{display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap}
+  .srv-row label{display:flex; flex-direction:column; gap:5px; font-size:11.5px; color:#a5abc0; flex:1 1 200px; min-width:160px}
+  .srv-row input{
+    background:#0b0d16; border:1px solid var(--line); border-radius:9px;
+    color:var(--text); font:inherit; font-size:13px; padding:8px 10px; min-width:0;
+  }
+  .srv-row input:focus{outline:none; border-color:rgba(139,92,246,.85); box-shadow:0 0 0 3px rgba(139,92,246,.15)}
+  .srv-hint{margin:9px 0 0; font-size:11.5px; color:#8d93a8; line-height:1.7}
+  .srv-hint code{font-family:ui-monospace,Consolas,monospace; color:#c9cee0}
+
+  .goods{display:flex; flex-direction:column; gap:12px}
+  .good{
+    background:linear-gradient(180deg, rgba(21,24,38,.94), rgba(13,15,22,.96));
+    border:1px solid var(--line); border-radius:var(--radius); padding:14px;
+  }
+  .good.off{opacity:.6}
+  .good-top{display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap}
+  .gid{font-family:ui-monospace,Consolas,monospace; font-size:11px; color:#5f6579}
+  .good-top .grow{flex:1}
+  .icon-mini{
+    width:30px; height:30px; border-radius:8px; border:1px solid var(--line);
+    background:rgba(255,255,255,.05); color:#cfd3e4; cursor:pointer;
+    font-size:13px; display:grid; place-items:center; padding:0;
+  }
+  .icon-mini:hover{background:rgba(255,255,255,.12)}
+  .icon-mini.del:hover{background:rgba(255,59,92,.18); border-color:rgba(255,59,92,.4); color:#ffb3c1}
+  .good-grid{display:grid; grid-template-columns:1.4fr .7fr .7fr .8fr; gap:10px 12px}
+  .good-grid .wide{grid-column:1 / -1}
+  .good-grid label{display:flex; flex-direction:column; gap:5px; font-size:11.5px; color:#8d93a8}
+  .good-grid input{
+    background:#0b0d16; border:1px solid var(--line); border-radius:9px;
+    color:var(--text); font:inherit; font-size:13px; padding:8px 10px; min-width:0;
+  }
+  .good-grid input:focus{outline:none; border-color:rgba(139,92,246,.85); box-shadow:0 0 0 3px rgba(139,92,246,.15)}
+  .good-grid input.bad{border-color:rgba(255,59,92,.7)}
+  .empty{color:#7b8199; font-size:13px; text-align:center; padding:30px 10px}
+  .empty.hide{display:none}
+
+  /* 开关 */
+  .switch{display:inline-flex; align-items:center; gap:7px; cursor:pointer; user-select:none; color:#c9cee0; font-size:12px}
+  .switch input{position:absolute; opacity:0; width:1px; height:1px}
+  .switch .track{width:36px; height:20px; border-radius:999px; background:rgba(255,255,255,.15); position:relative; transition:background .2s; flex:0 0 auto}
+  .switch .track::after{content:""; position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:#fff; transition:transform .2s}
+  .switch input:checked + .track{background:linear-gradient(135deg,#9d6bff,#6d28d9)}
+  .switch input:checked + .track::after{transform:translateX(16px)}
+  .switch input:focus-visible + .track{outline:2px solid var(--accent); outline-offset:2px}
+
+  /* 预览 */
+  .side{position:sticky; top:76px; display:flex; flex-direction:column; gap:12px}
+  .side h2{margin:0; font-size:13px; letter-spacing:1.2px; color:#a5abc0; text-transform:uppercase}
+  .preview-card{
+    background:linear-gradient(180deg,#1a1e2d,#10131d);
+    border:1px solid var(--line); border-radius:var(--radius); padding:14px;
+    max-height:520px; overflow-y:auto;
+  }
+  .product{display:flex; gap:12px; padding:10px; border-radius:13px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.06); margin-bottom:10px}
+  .product:last-child{margin-bottom:0}
+  .product .thumb{width:56px; height:56px; border-radius:10px; flex:0 0 auto; overflow:hidden; background:linear-gradient(145deg,#2a2140,#1b2433); display:grid; place-items:center; font-size:18px; font-weight:700; color:#c8b6ff}
+  .product .thumb img{width:100%; height:100%; object-fit:cover; display:block}
+  .product .info{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:4px}
+  .product .name{font-size:13px; font-weight:600; line-height:1.45; color:#e9ebf3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .product .row{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
+  .product .price{color:#ff7a95; font-weight:800; font-size:14px}
+  .product .price s{color:#6b7186; font-size:11px; font-weight:400; margin-left:5px}
+  .product .tag{font-size:10.5px; font-weight:700; color:#ffd9a8; background:rgba(255,176,32,.14); border:1px solid rgba(255,176,32,.35); padding:1px 6px; border-radius:5px}
+  .product .go{align-self:center; flex:0 0 auto; padding:7px 10px; border-radius:8px; font-size:11.5px; font-weight:700; color:#fff; text-decoration:none; white-space:nowrap; background:linear-gradient(135deg,#ff2d55,#d4163c)}
+  .product .go.disabled{background:rgba(255,255,255,.1); color:#8d93a8}
+  .side .hint{margin:0; font-size:11.5px; color:#6b7186; line-height:1.7}
+  .draft-box{display:flex; gap:8px; flex-wrap:wrap}
+  .foot{text-align:center; font-size:11.5px; color:#5f6577; padding:0 20px 24px; line-height:1.8}
+  .foot code{font-family:ui-monospace,Consolas,monospace; color:#8d93a8; font-size:11px}
+
+  @media (max-width:1080px){
+    .layout{grid-template-columns:minmax(0,1fr) 330px}
+    .good-grid{grid-template-columns:1.4fr .8fr .8fr}
+    .good-grid label:nth-child(4){grid-column:1 / -1}
+  }
+  @media (max-width:960px){
+    .layout{grid-template-columns:minmax(0,1fr); padding:14px}
+    .side{position:static; order:2}
+    .main{order:1}
+    .good-grid{grid-template-columns:1fr 1fr}
+    .good-grid .wide{grid-column:1 / -1}
+  }
+  @media (max-width:620px){
+    .topbar{padding:9px 12px}
+    .brand .tag{display:none}
+    .good-grid{grid-template-columns:1fr 1fr}
+    .good{padding:12px; border-radius:12px}
+    .toolbar .btn{flex:1 1 auto}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+      <defs><linearGradient id="lg3" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#ffb020"/><stop offset="1" stop-color="#ff6a00"/>
+      </linearGradient></defs>
+      <rect width="32" height="32" rx="9" fill="url(#lg3)"/>
+      <path d="M9 12h14l-1.6 8.4a1.5 1.5 0 0 1-1.5 1.2h-7.8a1.5 1.5 0 0 1-1.5-1.2L9 12z" fill="#fff"/>
+      <circle cx="12.5" cy="24" r="1.2" fill="#fff"/><circle cx="19.5" cy="24" r="1.2" fill="#fff"/>
+    </svg>
+    <span>聚光直播</span>
+    <span class="tag">商品管理</span>
+  </div>
+  <div class="grow"></div>
+  <a class="top-link" href="开播.html">主播控制台 ↗</a>
+  <a class="top-link" href="直播.html">观看页 ↗</a>
+  <a class="top-link" href="接入说明.html">接入说明</a>
+</header>
+
+<main class="layout">
+  <section class="main">
+    <div class="toolbar">
+      <div class="stats"><b id="statTotal">0</b> 件商品 · <b id="statOn">0</b> 件在售</div>
+      <div class="grow"></div>
+      <button class="btn primary" id="btnAdd" type="button">+ 新增商品</button>
+      <button class="btn ghost" id="btnServer" type="button">服务端</button>
+      <button class="btn ghost" id="btnConnect" type="button">连接 products.js</button>
+      <button class="btn primary" id="btnSave" type="button">保存到 products.js</button>
+      <button class="btn ghost" id="btnDownload" type="button">下载 products.js</button>
+    </div>
+
+    <div class="server-box hide" id="serverBox">
+      <div class="srv-row">
+        <label>服务地址
+          <input id="srvUrl" type="url" placeholder="http://127.0.0.1:8787" spellcheck="false">
+        </label>
+        <label>管理令牌
+          <input id="srvToken" type="text" placeholder="启动 chat-server 时控制台打印的令牌" spellcheck="false">
+        </label>
+        <button class="btn primary" id="btnServerConnect" type="button">连接</button>
+      </div>
+      <p class="srv-hint">令牌在启动 <code>chat-server.js</code> 时打印；也可以用 <code>ADMIN_TOKEN=你的口令</code> 启动固定它。连上后「保存」会直接写到服务端，观众端 1 分钟内自动更新。</p>
+    </div>
+
+    <div class="status warn" id="statusBar">修改会先保存在本机草稿；点「保存到 products.js」才会写进文件。</div>
+
+    <div class="goods" id="goodsList"></div>
+    <p class="empty hide" id="emptyState">还没有商品，点「新增商品」开始。</p>
+  </section>
+
+  <aside class="side">
+    <h2>观众端预览</h2>
+    <div class="preview-card" id="previewList"></div>
+    <p class="hint">这是观众点开小黄车后看到的列表；关掉「上架」的商品不会出现在这里，也不会出现在直播间。</p>
+    <div class="draft-box">
+      <button class="btn ghost" id="btnReload" type="button">放弃草稿，重新读取 products.js</button>
+    </div>
+  </aside>
+</main>
+
+<footer class="foot">
+  商品数据来自同目录的 <code>products.js</code> · 保存后刷新观看页即可生效 ·
+  <a href="接入说明.html" style="color:#9aa1b8">商品链接怎么写</a>
+</footer>
+
+<script src="config.js"></script>
+<script src="products.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var DRAFT_KEY = 'zhibo:products:draft';
+  var MAX_TEXT = 60;
+
+  var goodsList = $('goodsList');
+  var emptyState = $('emptyState');
+  var previewList = $('previewList');
+  var statusBar = $('statusBar');
+  var statTotal = $('statTotal');
+  var statOn = $('statOn');
+  var btnAdd = $('btnAdd');
+  var btnConnect = $('btnConnect');
+  var btnSave = $('btnSave');
+  var btnDownload = $('btnDownload');
+  var btnReload = $('btnReload');
+  var serverBox = $('serverBox');
+  var srvUrl = $('srvUrl');
+  var srvToken = $('srvToken');
+  var btnServer = $('btnServer');
+  var btnServerConnect = $('btnServerConnect');
+  var SERVER_KEY = 'zhibo:productsServer';
+  var CFG = window.ZHIBO_CONFIG || {};
+
+  var products = [];
+  var fileHandle = null;
+  var dirty = false;
+  var supportsFS = (typeof window.showOpenFilePicker === 'function');
+  var mode = 'file';                 // file | server
+  var serverConfig = { url: '', token: '' };
+
+  /* ---------- 数据 ---------- */
+  function clone(list) {
+    return list.map(function (p) { return Object.assign({}, p); });
+  }
+
+  function normalize(p, i) {
+    var out = {
+      id: p.id || makeId(),
+      title: String(p.title || '').slice(0, MAX_TEXT),
+      price: Number(p.price),
+      image: String(p.image || ''),
+      tag: String(p.tag || ''),
+      url: String(p.url || ''),
+      visible: p.visible !== false
+    };
+    if (p.original !== undefined && p.original !== null && p.original !== '') out.original = Number(p.original);
+    if (!isFinite(out.price) || out.price < 0) out.price = 0;
+    if (out.original !== undefined && (!isFinite(out.original) || out.original < 0)) delete out.original;
+    return out;
+  }
+
+  function makeId() {
+    return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  }
+
+  function loadInitial() {
+    var fromFile = (window.ZHIBO_PRODUCTS && window.ZHIBO_PRODUCTS.length) ? window.ZHIBO_PRODUCTS : [];
+    products = clone(fromFile).map(normalize);
+
+    var draft = null;
+    try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) {}
+    if (draft && Array.isArray(draft.products) && draft.products.length) {
+      products = draft.products.map(normalize);
+      setStatus('warn', '已恢复上次编辑的草稿（还没写进 products.js）。改好后点「保存到 products.js」。');
+    } else if (!fromFile.length) {
+      setStatus('warn', '还没有商品，点「新增商品」开始。');
+    } else {
+      setStatus('warn', '已读取 products.js（' + products.length + ' 件）。修改先存在本机草稿。');
+    }
+    if (!supportsFS) {
+      btnConnect.disabled = true;
+      btnConnect.title = '当前浏览器不支持直接写入文件，请用「下载 products.js」然后替换';
+      btnSave.classList.add('hide');
+    }
+  }
+
+  function saveDraft() {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), products: products }));
+    } catch (e) {}
+  }
+
+  function setStatus(kind, text) {
+    statusBar.className = 'status ' + kind;
+    statusBar.textContent = text;
+  }
+
+  function markDirty(opts) {
+    dirty = true;
+    saveDraft();
+    if (opts && opts.reRender === false) {
+      renderPreview();
+      renderStats();
+      emptyState.classList.toggle('hide', products.length > 0);
+    } else {
+      renderAll();
+    }
+  }
+
+  /* ---------- 渲染 ---------- */
+  function renderAll() {
+    renderList();
+    renderPreview();
+    renderStats();
+    emptyState.classList.toggle('hide', products.length > 0);
+  }
+
+  function renderStats() {
+    statTotal.textContent = String(products.length);
+    statOn.textContent = String(products.filter(function (p) { return p.visible !== false; }).length);
+  }
+
+  function renderList() {
+    goodsList.innerHTML = '';
+    products.forEach(function (p, index) {
+      var card = document.createElement('div');
+      card.className = 'good' + (p.visible === false ? ' off' : '');
+
+      var top = document.createElement('div');
+      top.className = 'good-top';
+
+      var sw = document.createElement('label');
+      sw.className = 'switch';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = p.visible !== false;
+      cb.addEventListener('change', function () {
+        p.visible = cb.checked;
+        markDirty();
+        setStatus('warn', '已修改，记得保存到 products.js');
+      });
+      var track = document.createElement('span');
+      track.className = 'track';
+      sw.appendChild(cb);
+      sw.appendChild(track);
+      sw.appendChild(document.createTextNode('上架'));
+
+      var gid = document.createElement('span');
+      gid.className = 'gid';
+      gid.textContent = '#' + p.id;
+
+      var grow = document.createElement('span');
+      grow.className = 'grow';
+
+      var up = miniBtn('↑', '上移', function () { move(index, -1); });
+      var down = miniBtn('↓', '下移', function () { move(index, 1); });
+      var del = miniBtn('删除', '删除这件商品', function () { remove(index); });
+      del.classList.add('del');
+
+      top.appendChild(sw);
+      top.appendChild(gid);
+      top.appendChild(grow);
+      top.appendChild(up);
+      top.appendChild(down);
+      top.appendChild(del);
+
+      var grid = document.createElement('div');
+      grid.className = 'good-grid';
+
+      grid.appendChild(field('名称', 'title', p.title, 'text', '例如：手冲咖啡豆 250g', false, index));
+      grid.appendChild(field('价格（元）', 'price', p.price, 'number', '89', false, index));
+      grid.appendChild(field('原价（可选）', 'original', p.original === undefined ? '' : p.original, 'number', '129', false, index));
+      grid.appendChild(field('角标（可选）', 'tag', p.tag, 'text', '包邮', false, index));
+      grid.appendChild(field('图片地址（可选）', 'image', p.image, 'text', 'https://...', false, index));
+      grid.appendChild(field('购买链接', 'url', p.url, 'text', 'https://你的商城商品页', true, index));
+
+      card.appendChild(top);
+      card.appendChild(grid);
+      goodsList.appendChild(card);
+    });
+  }
+
+  function miniBtn(text, title, onClick) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'icon-mini';
+    b.textContent = text;
+    b.title = title;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function field(labelText, key, value, type, placeholder, wide, index) {
+    var label = document.createElement('label');
+    if (wide) label.className = 'wide';
+    label.appendChild(document.createTextNode(labelText));
+
+    var input = document.createElement('input');
+    input.type = type;
+    input.value = value === undefined || value === null ? '' : String(value);
+    input.placeholder = placeholder || '';
+    if (type === 'number') { input.min = '0'; input.step = '0.01'; }
+    input.addEventListener('input', function () {
+      var v = input.value;
+      var p = products[index];
+      if (!p) return;
+
+      if (key === 'price' || key === 'original') {
+        if (v === '') {
+          if (key === 'price') { input.classList.add('bad'); return; }
+          input.classList.remove('bad');
+          delete p[key];
+        } else {
+          var n = Number(v);
+          if (!isFinite(n) || n < 0) { input.classList.add('bad'); return; }
+          input.classList.remove('bad');
+          p[key] = n;
+        }
+      } else if (key === 'url') {
+        if (v && !/^https?:\/\//i.test(v)) { input.classList.add('bad'); return; }
+        input.classList.remove('bad');
+        p[key] = v.trim();
+      } else {
+        p[key] = v;
+      }
+      markDirty({ reRender: false });
+      setStatus('warn', '已修改，记得保存到 products.js');
+    });
+    label.appendChild(input);
+    return label;
+  }
+
+  function renderPreview() {
+    previewList.innerHTML = '';
+    var visible = products.filter(function (p) { return p.visible !== false; });
+    if (!visible.length) {
+      var d = document.createElement('div');
+      d.className = 'empty';
+      d.textContent = '没有在售商品';
+      previewList.appendChild(d);
+      return;
+    }
+    visible.forEach(function (p) {
+      var row = document.createElement('div');
+      row.className = 'product';
+
+      var thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      thumb.textContent = String(p.title || '商').charAt(0);
+      if (p.image) {
+        var img = document.createElement('img');
+        img.alt = '';
+        img.loading = 'lazy';
+        img.src = p.image;
+        img.onerror = function () { if (img.parentNode) thumb.removeChild(img); };
+        thumb.appendChild(img);
+      }
+      row.appendChild(thumb);
+
+      var info = document.createElement('div');
+      info.className = 'info';
+      var name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = p.title || '未命名商品';
+      info.appendChild(name);
+
+      var priceRow = document.createElement('div');
+      priceRow.className = 'row';
+      var price = document.createElement('span');
+      price.className = 'price';
+      price.textContent = money(p.price);
+      if (p.original && Number(p.original) > Number(p.price)) {
+        var s = document.createElement('s');
+        s.textContent = money(p.original);
+        price.appendChild(s);
+      }
+      priceRow.appendChild(price);
+      if (p.tag) {
+        var tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = p.tag;
+        priceRow.appendChild(tag);
+      }
+      info.appendChild(priceRow);
+      row.appendChild(info);
+
+      var go = document.createElement(p.url ? 'a' : 'span');
+      go.className = 'go' + (p.url ? '' : ' disabled');
+      go.textContent = p.url ? '去看看' : '暂未上架';
+      if (p.url) { go.href = p.url; go.target = '_blank'; go.rel = 'noopener noreferrer'; }
+      row.appendChild(go);
+
+      previewList.appendChild(row);
+    });
+  }
+
+  function money(v) {
+    var n = Number(v);
+    if (!isFinite(n)) return '¥—';
+    return '¥' + (n % 1 === 0 ? String(n) : n.toFixed(2));
+  }
+
+  /* ---------- 操作 ---------- */
+  function addProduct() {
+    products.push(normalize({ title: '新商品', price: 0, visible: true }));
+    markDirty();
+    setStatus('warn', '已新增一件商品，填好名称和价格后记得保存');
+    var inputs = goodsList.querySelectorAll('.good:last-child input');
+    if (inputs.length) inputs[0].focus();
+  }
+
+  function remove(index) {
+    if (!window.confirm('删除「' + (products[index].title || '未命名商品') + '」？')) return;
+    products.splice(index, 1);
+    markDirty();
+    setStatus('warn', '已删除，记得保存');
+  }
+
+  function move(index, delta) {
+    var target = index + delta;
+    if (target < 0 || target >= products.length) return;
+    var tmp = products[index];
+    products[index] = products[target];
+    products[target] = tmp;
+    markDirty();
+  }
+
+  /* ---------- 生成文件 ---------- */
+  function q(s) {
+    return "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+  }
+
+  function generateSource() {
+    var lines = [];
+    lines.push('/**');
+    lines.push(' * 小黄车商品数据（由 商品管理.html 生成）');
+    lines.push(' * 刷新观看页即可生效；字段：title 名称 / price 现价 / original 原价 / image 图片 / tag 角标 / url 购买链接 / visible 是否上架');
+    lines.push(' */');
+    lines.push('window.ZHIBO_PRODUCTS = [');
+    products.forEach(function (p, i) {
+      var parts = [];
+      parts.push("    id: " + q(p.id));
+      parts.push("    title: " + q(p.title || ''));
+      parts.push('    price: ' + (isFinite(p.price) ? p.price : 0));
+      if (p.original !== undefined) parts.push('    original: ' + p.original);
+      if (p.image) parts.push("    image: " + q(p.image));
+      if (p.tag) parts.push("    tag: " + q(p.tag));
+      parts.push("    url: " + q(p.url || ''));
+      parts.push('    visible: ' + (p.visible !== false));
+      lines.push('  {');
+      lines.push(parts.join(',\n'));
+      lines.push('  }' + (i < products.length - 1 ? ',' : ''));
+    });
+    lines.push('];');
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  /* ---------- 文件写入 ---------- */
+  async function connectFile() {
+    if (!supportsFS) return false;
+    try {
+      var handles = await window.showOpenFilePicker({
+        multiple: false,
+        types: [{ description: '商品数据', accept: { 'text/javascript': ['.js'] } }]
+      });
+      fileHandle = handles[0];
+      mode = 'file';
+      btnSave.disabled = false;
+      updateModeUI();
+      setStatus('ok', '已连接 ' + fileHandle.name + '，点「保存到 products.js」即可写入');
+      return true;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return false;
+      setStatus('err', '连接文件失败：' + (e && e.message ? e.message : e));
+      return false;
+    }
+  }
+
+  function updateModeUI() {
+    btnSave.textContent = mode === 'server' ? '保存到服务端' : '保存到 products.js';
+    btnConnect.textContent = mode === 'server' ? '连接 products.js（切回文件）' : '连接 products.js';
+    btnServer.classList.toggle('primary', mode === 'server');
+    btnServer.classList.toggle('ghost', mode !== 'server');
+  }
+
+  async function connectServer(silent) {
+    var url = String(srvUrl.value || serverConfig.url || '').trim().replace(/\/+$/, '');
+    var token = String(srvToken.value || serverConfig.token || '').trim();
+    if (!url || !token) {
+      serverBox.classList.remove('hide');
+      setStatus('err', '请填写服务地址和管理令牌');
+      return false;
+    }
+    try {
+      var res = await fetch(url + '/products?room=live', { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      if (!data || !Array.isArray(data.products)) throw new Error('返回格式不对');
+      serverConfig = { url: url, token: token };
+      mode = 'server';
+      products = data.products.map(normalize);
+      dirty = false;
+      try { localStorage.setItem(SERVER_KEY, JSON.stringify(serverConfig)); } catch (e) {}
+      renderAll();
+      updateModeUI();
+      if (!silent) serverBox.classList.add('hide');
+      setStatus('ok', '已连接服务端 · 共 ' + products.length + ' 件商品。保存后观众端 1 分钟内自动更新');
+      return true;
+    } catch (e) {
+      mode = 'file';
+      updateModeUI();
+      setStatus('err', '连接服务端失败：' + (e && e.message ? e.message : e) + '（确认服务已启动、地址和令牌正确）');
+      return false;
+    }
+  }
+
+  async function saveToServer() {
+    if (mode !== 'server' || !serverConfig.url) {
+      var ok = await connectServer();
+      if (!ok) return;
+    }
+    try {
+      var res = await fetch(serverConfig.url + '/products', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + serverConfig.token
+        },
+        body: JSON.stringify({ products: products })
+      });
+      var data = {};
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      dirty = false;
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+      setStatus('ok', '已保存到服务端 · ' + (data.count || products.length) + ' 件。观众端刷新立即生效，没刷新的 1 分钟内自动更新。');
+    } catch (e) {
+      setStatus('err', '保存到服务端失败：' + (e && e.message ? e.message : e));
+    }
+  }
+
+  function reloadSource() {
+    if (dirty && !window.confirm('放弃当前修改，重新读取？')) return;
+    try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+    if (mode === 'server' && serverConfig.url) {
+      connectServer(true);
+      return;
+    }
+    var fromFile = (window.ZHIBO_PRODUCTS && window.ZHIBO_PRODUCTS.length) ? window.ZHIBO_PRODUCTS : [];
+    products = clone(fromFile).map(normalize);
+    dirty = false;
+    renderAll();
+    setStatus('warn', '已重新读取 products.js（' + products.length + ' 件）');
+  }
+
+  function restoreServer() {
+    var cfg = null;
+    try { cfg = JSON.parse(localStorage.getItem(SERVER_KEY) || 'null'); } catch (e) {}
+    if (!cfg || !cfg.url || !cfg.token) return;
+    serverConfig = cfg;
+    srvUrl.value = cfg.url;
+    srvToken.value = cfg.token;
+    connectServer(true);
+  }
+
+  async function writeFile() {
+    if (!fileHandle) {
+      var ok = await connectFile();
+      if (!ok) return;
+    }
+    try {
+      var writable = await fileHandle.createWritable();
+      await writable.write(generateSource());
+      await writable.close();
+      dirty = false;
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+      setStatus('ok', '已写入 ' + fileHandle.name + ' · 刷新观看页即可看到新商品');
+    } catch (e) {
+      setStatus('err', '写入失败：' + (e && e.message ? e.message : e) + '。可以改用「下载 products.js」再手动替换。');
+    }
+  }
+
+  function downloadFile() {
+    var blob = new Blob([generateSource()], { type: 'text/javascript;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'products.js';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    setStatus('ok', '已下载 products.js，用它替换网站目录里的同名文件即可');
+  }
+
+  /* ---------- 事件 ---------- */
+  btnAdd.addEventListener('click', addProduct);
+  btnConnect.addEventListener('click', connectFile);
+  btnServer.addEventListener('click', function () {
+    serverBox.classList.toggle('hide');
+    if (!serverBox.classList.contains('hide')) srvUrl.focus();
+  });
+  btnServerConnect.addEventListener('click', function () { connectServer(); });
+  btnSave.addEventListener('click', function () {
+    if (mode === 'server') saveToServer(); else writeFile();
+  });
+  btnDownload.addEventListener('click', downloadFile);
+  btnReload.addEventListener('click', reloadSource);
+  window.addEventListener('beforeunload', function (e) {
+    if (!dirty) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
+  /* ---------- 初始化 ---------- */
+  try {
+    var qApi = new URLSearchParams(location.search).get('api');
+    if (qApi) {
+      srvUrl.value = qApi;
+      serverBox.classList.remove('hide');
+    }
+  } catch (e) {}
+  if (!srvUrl.value && CFG.apiBase) {
+    srvUrl.value = CFG.apiBase;
+    serverBox.classList.remove('hide');
+  }
+  loadInitial();
+  renderAll();
+  updateModeUI();
+  restoreServer();
+  if (!supportsFS) {
+    btnConnect.disabled = true;
+    btnConnect.title = '当前浏览器不支持直接写入文件，可改用服务端或下载文件';
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,2148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#07080d">
+<title>我的直播间 · LIVE</title>
+<meta name="description" content="正在直播：我的直播间。支持 HLS / MP4 播放、弹幕与聊天室。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="我的直播间 · 直播中">
+<meta property="og:description" content="点开就能看直播，支持弹幕与聊天室。">
+<meta name="format-detection" content="telephone=no,email=no,address=no">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%238b5cf6'/%3E%3Cpath d='M12 9l11 7-11 7z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#07080d;
+    --panel:#10121a;
+    --panel-2:#151826;
+    --line:rgba(255,255,255,.085);
+    --text:#e9ebf3;
+    --muted:#8d93a8;
+    --dim:#6b7186;
+    --accent:#8b5cf6;
+    --accent-deep:#6d28d9;
+    --live:#ff3b5c;
+    --radius:16px;
+    --shadow:0 30px 80px -32px rgba(139,92,246,.55);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    min-height:100vh;
+    color:var(--text);
+    background:
+      radial-gradient(900px 520px at 10% -12%, rgba(139,92,246,.22), transparent 62%),
+      radial-gradient(760px 420px at 102% -6%, rgba(255,59,92,.13), transparent 58%),
+      var(--bg);
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    font-size:15px;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+                     linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(circle at 50% 0%, #000 0%, transparent 70%);
+  }
+
+  /* ===== 顶栏 ===== */
+  .topbar{
+    position:sticky; top:0; z-index:30;
+    display:flex; align-items:center; gap:14px;
+    padding:10px 20px;
+    background:rgba(9,10,16,.72);
+    backdrop-filter:blur(16px) saturate(140%);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.4px; white-space:nowrap}
+  .brand svg{display:block}
+  .brand .tag{
+    font-size:10.5px; font-weight:600; letter-spacing:1px; color:#cdb9ff;
+    background:rgba(139,92,246,.16); border:1px solid rgba(139,92,246,.4);
+    padding:2px 7px; border-radius:6px;
+  }
+  .topbar .divider{width:1px; height:22px; background:var(--line)}
+  .topbar .nav{display:flex; gap:4px; font-size:13.5px; color:var(--muted)}
+  .topbar .nav span{padding:6px 10px; border-radius:8px; cursor:default}
+  .topbar .nav span.active{color:#fff; background:rgba(255,255,255,.07)}
+  .topbar .grow{flex:1}
+  .pill{
+    display:inline-flex; align-items:center; gap:7px;
+    padding:6px 12px; border-radius:999px; font-size:12.5px; font-weight:600;
+    background:rgba(255,255,255,.055); border:1px solid var(--line); color:#c9cde0;
+    white-space:nowrap;
+  }
+  .pill.live{color:#fff; background:linear-gradient(135deg,#ff2d55,#e11d48); border-color:transparent; box-shadow:0 6px 20px -8px rgba(255,45,85,.9)}
+  .pill.live i{width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.28);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .pill svg{opacity:.85}
+  .user-chip{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:4px 12px 4px 4px; border-radius:999px; cursor:pointer;
+    background:rgba(255,255,255,.06); border:1px solid var(--line);
+    color:#dfe3f0; font:inherit; font-size:12.5px; font-weight:600;
+    transition:background .18s, border-color .18s;
+  }
+  .user-chip:hover{background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.2)}
+  .user-chip:focus-visible{outline:2px solid #c4b5fd; outline-offset:2px}
+  .user-chip .nick-text{max-width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .mini-avatar{
+    width:24px; height:24px; border-radius:50%; flex:0 0 auto;
+    display:grid; place-items:center; font-size:11px; font-weight:700; color:#fff;
+    background:#8b5cf6; box-shadow:inset 0 1px 0 rgba(255,255,255,.3);
+  }
+
+  /* ===== 布局 ===== */
+  .layout{
+    position:relative; z-index:1;
+    display:grid; grid-template-columns:minmax(0,1fr) 362px;
+    gap:18px; align-items:start;
+    max-width:1560px; margin:0 auto; padding:18px 20px 26px;
+  }
+  .stage{min-width:0; display:flex; flex-direction:column; gap:16px}
+
+  /* ===== 播放器 ===== */
+  .player{
+    position:relative; aspect-ratio:16/9; width:100%;
+    background:#000; border-radius:var(--radius); overflow:hidden;
+    border:1px solid rgba(255,255,255,.07);
+    box-shadow:var(--shadow);
+    isolation:isolate;
+    outline:none;
+  }
+  .player:fullscreen{aspect-ratio:auto; width:100vw; height:100vh; border-radius:0; border:0}
+  video{display:block; width:100%; height:100%; object-fit:contain; background:#000}
+
+  /* 海报层 */
+  .poster{
+    position:absolute; inset:0; z-index:6;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center; cursor:pointer;
+    background:
+      radial-gradient(600px 300px at 50% 108%, rgba(139,92,246,.34), transparent 70%),
+      radial-gradient(500px 260px at 12% 0%, rgba(255,59,92,.20), transparent 65%),
+      linear-gradient(150deg,#191233 0%,#0b0d15 58%,#0a0c13 100%);
+    transition:opacity .35s ease, visibility .35s;
+  }
+  .poster::after{
+    content:""; position:absolute; inset:0; opacity:.5;
+    background-image:radial-gradient(rgba(255,255,255,.11) 1px, transparent 1px);
+    background-size:26px 26px;
+    mask-image:radial-gradient(circle at 50% 50%, #000, transparent 72%);
+  }
+  .player.started .poster{opacity:0; visibility:hidden; pointer-events:none}
+  .poster-inner{position:relative; z-index:1; padding:20px; max-width:88%}
+  .poster-kicker{
+    display:inline-flex; align-items:center; gap:7px;
+    font-size:12px; letter-spacing:2px; color:#c7bdf5; text-transform:uppercase;
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+    padding:5px 12px; border-radius:999px; margin-bottom:14px;
+  }
+  .poster-kicker i{width:6px;height:6px;border-radius:50%;background:var(--live);box-shadow:0 0 10px var(--live)}
+  .poster-title{margin:0 0 8px; font-size:clamp(20px,3vw,30px); letter-spacing:1px}
+  .poster-sub{margin:0 0 20px; color:#a9aec4; font-size:13px}
+  .big-play{
+    width:78px; height:78px; margin:0 auto 16px;
+    display:grid; place-items:center; cursor:pointer;
+    border:0; border-radius:50%; color:#fff;
+    background:linear-gradient(145deg,#9d6bff,#6d28d9);
+    box-shadow:0 18px 46px -14px rgba(139,92,246,.95), inset 0 1px 0 rgba(255,255,255,.35);
+    transition:transform .22s cubic-bezier(.3,1.4,.5,1), box-shadow .22s;
+  }
+  .big-play svg{margin-left:5px}
+  .big-play:hover{transform:scale(1.07); box-shadow:0 22px 56px -12px rgba(139,92,246,1), inset 0 1px 0 rgba(255,255,255,.45)}
+  .big-play:active{transform:scale(.98)}
+  .big-play:focus-visible{outline:3px solid #c4b5fd; outline-offset:4px}
+  .poster-hint{margin:0; font-size:12px; color:var(--dim)}
+
+  /* 播放器角标 */
+  .player-badges{
+    position:absolute; top:12px; left:12px; z-index:4;
+    display:flex; gap:6px; align-items:center;
+    opacity:0; transition:opacity .3s;
+  }
+  .player.started .player-badges{opacity:1}
+  .badge-live{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11.5px; font-weight:800; letter-spacing:1.2px; color:#fff;
+    background:linear-gradient(135deg,#ff2d55,#dc143c); padding:4px 9px; border-radius:6px;
+    box-shadow:0 6px 18px -8px rgba(255,45,85,.9);
+  }
+  .badge-live i{width:5px;height:5px;border-radius:50%;background:#fff;animation:pulse 1.6s infinite}
+  .badge-quality{
+    font-size:11px; font-weight:700; letter-spacing:.6px; color:#d8dcec;
+    background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.22);
+    padding:4px 8px; border-radius:6px; backdrop-filter:blur(4px);
+  }
+
+  /* 弹幕 */
+  .danmaku-layer{
+    position:absolute; inset:0; z-index:3; overflow:hidden;
+    pointer-events:none; contain:strict;
+    transition:opacity .25s;
+  }
+  .player.dm-off .danmaku-layer{opacity:0}
+  .dm{
+    position:absolute; left:100%; white-space:nowrap;
+    font-size:clamp(14px,1.6vw,19px); font-weight:700; letter-spacing:.5px;
+    text-shadow:0 2px 6px rgba(0,0,0,.95), 0 0 2px rgba(0,0,0,.8);
+    animation-name:dm-scroll; animation-timing-function:linear; animation-fill-mode:forwards;
+    will-change:left;
+  }
+  @keyframes dm-scroll{from{left:100%} to{left:-105%}}
+
+  /* 加载 / 中央播放 / 错误 */
+  .spinner{
+    position:absolute; top:50%; left:50%; z-index:5;
+    width:38px; height:38px; margin:-19px 0 0 -19px;
+    border:3px solid rgba(255,255,255,.18); border-top-color:#fff; border-radius:50%;
+    opacity:0; transition:opacity .2s; pointer-events:none;
+    animation:spin .8s linear infinite;
+  }
+  .player.loading .spinner{opacity:1}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .center-play{
+    position:absolute; top:50%; left:50%; z-index:4;
+    transform:translate(-50%,-50%) scale(.96);
+    width:66px; height:66px; display:grid; place-items:center;
+    border:0; border-radius:50%; cursor:pointer; color:#fff;
+    background:rgba(10,12,20,.55); border:1px solid rgba(255,255,255,.24);
+    backdrop-filter:blur(8px);
+    opacity:0; pointer-events:none; transition:opacity .22s, transform .22s;
+  }
+  .center-play svg{margin-left:4px}
+  .player.started:not(.playing):not(.errored) .center-play{opacity:1; pointer-events:auto}
+  .center-play:hover{background:rgba(139,92,246,.55); transform:translate(-50%,-50%) scale(1.05)}
+  .player.errored .center-play{display:none}
+
+  .error-box{
+    position:absolute; inset:0; z-index:7; display:none;
+    place-items:center; padding:24px; text-align:center;
+    background:linear-gradient(160deg,rgba(26,10,18,.94),rgba(8,9,14,.97));
+    backdrop-filter:blur(6px);
+  }
+  .player.errored .error-box{display:grid}
+  .error-inner{max-width:420px}
+  .error-icon{
+    width:52px; height:52px; margin:0 auto 14px; display:grid; place-items:center;
+    border-radius:50%; background:rgba(255,59,92,.14); border:1px solid rgba(255,59,92,.4);
+    color:#ff8fa3;
+  }
+  .error-box h3{margin:0 0 8px; font-size:16px}
+  .error-box p{margin:0 0 18px; font-size:13px; line-height:1.7; color:#a9aec4; word-break:break-word}
+  .error-actions{display:flex; gap:10px; justify-content:center; flex-wrap:wrap}
+
+  /* ===== 小黄车 ===== */
+  .cart-fab{
+    position:absolute; right:14px; bottom:74px; z-index:4;
+    width:54px; height:54px; border-radius:50%; border:0; cursor:pointer;
+    display:grid; place-items:center; color:#fff;
+    background:linear-gradient(145deg,#ffb020,#ff6a00);
+    box-shadow:0 14px 30px -12px rgba(255,106,0,.95), inset 0 1px 0 rgba(255,255,255,.35);
+    opacity:0; pointer-events:none; transform:scale(.9);
+    transition:opacity .25s, transform .25s, filter .18s;
+  }
+  .player.started .cart-fab{opacity:1; pointer-events:auto; transform:none}
+  .cart-fab:hover{filter:brightness(1.08); transform:scale(1.06)}
+  .cart-fab:active{transform:scale(.98)}
+  .cart-fab:focus-visible{outline:3px solid #ffd9a8; outline-offset:3px}
+  .cart-fab.hide{display:none}
+  .cart-badge{
+    position:absolute; top:-3px; right:-3px; min-width:20px; height:20px; padding:0 5px;
+    border-radius:10px; background:#ff2d55; color:#fff; font-size:11px; font-weight:800;
+    display:grid; place-items:center; border:2px solid #0b0d14; font-variant-numeric:tabular-nums;
+  }
+
+  .cart-sheet{position:fixed; inset:0; z-index:80; display:none}
+  .cart-sheet.open{display:block}
+  .cart-backdrop{position:absolute; inset:0; background:rgba(4,5,10,.62); backdrop-filter:blur(5px)}
+  .cart-panel{
+    position:absolute; left:50%; bottom:0; width:min(560px,100%);
+    max-height:80vh; transform:translateX(-50%);
+    display:flex; flex-direction:column;
+    background:linear-gradient(180deg,#1a1e2d,#10131d);
+    border:1px solid rgba(255,255,255,.1); border-bottom:0;
+    border-radius:18px 18px 0 0;
+    padding:16px 16px calc(14px + env(safe-area-inset-bottom));
+    box-shadow:0 -20px 60px -20px rgba(0,0,0,.9);
+    animation:cart-up .26s cubic-bezier(.2,1,.3,1) both;
+  }
+  @keyframes cart-up{from{transform:translate(-50%,26px); opacity:0} to{transform:translate(-50%,0); opacity:1}}
+  .cart-head{display:flex; align-items:center; gap:10px; margin-bottom:12px}
+  .cart-head h2{margin:0; font-size:16px; letter-spacing:.3px}
+  .cart-count{font-size:11.5px; color:#c9cee0; background:rgba(255,255,255,.08); border:1px solid var(--line); padding:2px 8px; border-radius:999px}
+  .cart-list{
+    flex:1 1 auto; overflow-y:auto; min-height:60px;
+    display:flex; flex-direction:column; gap:10px; padding-right:2px;
+    scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.16) transparent;
+  }
+  .cart-list::-webkit-scrollbar{width:6px}
+  .cart-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14); border-radius:4px}
+  .product{
+    display:flex; gap:12px; padding:10px; border-radius:13px;
+    background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.06);
+  }
+  .product .thumb{
+    width:64px; height:64px; border-radius:10px; flex:0 0 auto; overflow:hidden;
+    background:linear-gradient(145deg,#2a2140,#1b2433); display:grid; place-items:center;
+    font-size:20px; font-weight:700; color:#c8b6ff;
+  }
+  .product .thumb img{width:100%; height:100%; object-fit:cover; display:block}
+  .product .info{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:4px}
+  .product .name{
+    font-size:13.5px; font-weight:600; line-height:1.45; color:#e9ebf3;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .product .row{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
+  .product .price{color:#ff7a95; font-weight:800; font-size:15px}
+  .product .price s{color:#6b7186; font-size:11.5px; font-weight:400; margin-left:5px}
+  .product .tag{
+    font-size:10.5px; font-weight:700; color:#ffd9a8; background:rgba(255,176,32,.14);
+    border:1px solid rgba(255,176,32,.35); padding:1px 6px; border-radius:5px;
+  }
+  .product .go{
+    align-self:center; flex:0 0 auto; padding:9px 13px; border-radius:9px;
+    font-size:12.5px; font-weight:700; color:#fff; text-decoration:none; white-space:nowrap;
+    background:linear-gradient(135deg,#ff2d55,#d4163c);
+    box-shadow:0 10px 22px -14px rgba(255,45,85,1);
+  }
+  .product .go:hover{filter:brightness(1.08)}
+  .product .go.disabled{background:rgba(255,255,255,.1); color:#8d93a8; cursor:not-allowed; box-shadow:none}
+  .cart-empty{padding:28px 12px; text-align:center; color:#7b8199; font-size:13px; line-height:1.8}
+  .cart-foot{font-size:11px; color:#6b7186; line-height:1.7; margin:12px 0 0}
+
+  @media (max-width:620px){
+    .cart-fab{right:12px; bottom:70px; width:50px; height:50px}
+    .cart-panel{width:100%; max-height:82vh}
+    .product .thumb{width:56px; height:56px}
+  }
+
+  /* 控制条 */
+  .controls{
+    position:absolute; left:0; right:0; bottom:0; z-index:5;
+    display:flex; flex-direction:column; gap:2px;
+    padding:26px 12px 8px;
+    background:linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,.35) 55%, transparent);
+    opacity:0; visibility:hidden; transform:translateY(6px);
+    transition:opacity .22s, transform .22s, visibility .22s;
+  }
+  .player.started .controls{opacity:1; visibility:visible; transform:none}
+  .player.idle .controls{opacity:0; visibility:hidden}
+  .player.idle{cursor:none}
+  .seek-row{display:none; padding:0 4px 6px; width:100%}
+  .player.is-vod .seek-row{display:block}
+  .seek{
+    -webkit-appearance:none; appearance:none; width:100%; height:14px; margin:0;
+    background:transparent; cursor:pointer;
+  }
+  .seek::-webkit-slider-runnable-track{height:4px; border-radius:2px; background:rgba(255,255,255,.3)}
+  .seek::-webkit-slider-thumb{
+    -webkit-appearance:none; width:12px; height:12px; margin-top:-4px; border-radius:50%;
+    background:#fff; box-shadow:0 0 0 3px rgba(139,92,246,.65);
+  }
+  .seek::-moz-range-track{height:4px; border-radius:2px; background:rgba(255,255,255,.3)}
+  .seek::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:#fff}
+  .ctrl-row{display:flex; align-items:center; gap:4px}
+  .icon-btn{
+    display:grid; place-items:center; width:36px; height:36px;
+    border:0; border-radius:9px; background:transparent; color:#fff;
+    cursor:pointer; transition:background .18s, color .18s;
+    flex:0 0 auto;
+  }
+  .icon-btn:hover{background:rgba(255,255,255,.14)}
+  .icon-btn:focus-visible{outline:2px solid #c4b5fd; outline-offset:1px}
+  .icon-btn.off{color:#7b8197}
+  .volume{display:flex; align-items:center; gap:2px}
+  .vol{
+    -webkit-appearance:none; appearance:none; width:0; height:14px; margin:0;
+    background:transparent; cursor:pointer; opacity:0; transition:width .2s, opacity .2s;
+  }
+  .volume:hover .vol, .vol:focus-visible{width:70px; opacity:1}
+  .vol::-webkit-slider-runnable-track{height:4px; border-radius:2px; background:rgba(255,255,255,.32)}
+  .vol::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;margin-top:-3.5px;border-radius:50%;background:#fff}
+  .vol::-moz-range-track{height:4px;border-radius:2px;background:rgba(255,255,255,.32)}
+  .vol::-moz-range-thumb{width:11px;height:11px;border:0;border-radius:50%;background:#fff}
+  .time{
+    font-size:12px; font-variant-numeric:tabular-nums; color:#dfe3f0;
+    padding:0 6px; white-space:nowrap; letter-spacing:.3px;
+  }
+  .ctrl-row .spacer{flex:1}
+
+  /* ===== 直播信息 ===== */
+  .stream-info{padding:0 2px}
+  .title-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px}
+  .title-row h1{margin:0; font-size:20px; letter-spacing:.3px; line-height:1.35}
+  .chip{
+    font-size:11px; font-weight:700; letter-spacing:.6px; color:#cfd3e4;
+    background:rgba(255,255,255,.06); border:1px solid var(--line);
+    padding:3px 7px; border-radius:6px;
+  }
+  .chip.violet{color:#d5c8ff; background:rgba(139,92,246,.14); border-color:rgba(139,92,246,.35)}
+  .meta-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); margin-bottom:8px}
+  .meta-row b{color:#c9cee0; font-weight:600}
+  .dot-live{width:7px;height:7px;border-radius:50%;background:var(--live);box-shadow:0 0 8px rgba(255,59,92,.9)}
+  .desc{margin:0; font-size:13px; line-height:1.75; color:#828a9f; max-width:820px}
+
+  /* ===== 聊天室 ===== */
+  .chat{
+    position:sticky; top:76px;
+    display:flex; flex-direction:column;
+    height:calc(100vh - 100px); min-height:430px; max-height:860px;
+    background:linear-gradient(180deg, rgba(21,24,38,.92), rgba(13,15,22,.96));
+    border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden;
+    box-shadow:0 24px 60px -40px rgba(0,0,0,.9);
+  }
+  .chat-head{
+    display:flex; align-items:center; gap:9px;
+    padding:13px 14px; border-bottom:1px solid var(--line);
+    flex:0 0 auto;
+  }
+  .chat-head h2{margin:0; font-size:14px; letter-spacing:.4px}
+  .chat-online{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11.5px; color:#9aa1b8;
+    background:rgba(255,255,255,.05); border:1px solid var(--line);
+    padding:3px 8px; border-radius:999px;
+  }
+  .chat-online i{width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 8px rgba(52,211,153,.9)}
+  .chat-status{
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:11px; font-weight:600; letter-spacing:.3px;
+    padding:3px 8px; border-radius:999px; white-space:nowrap;
+    background:rgba(255,255,255,.06); border:1px solid var(--line); color:#9aa1b8;
+  }
+  .chat-status::before{content:""; width:5px; height:5px; border-radius:50%; background:#8d93a8}
+  .chat-status.ok{color:#9df3cf; border-color:rgba(52,211,153,.35); background:rgba(52,211,153,.12)}
+  .chat-status.ok::before{background:#34d399; box-shadow:0 0 6px rgba(52,211,153,.9)}
+  .chat-status.warn{color:#ffe0a3; border-color:rgba(251,191,36,.35); background:rgba(251,191,36,.1)}
+  .chat-status.warn::before{background:#fbbf24}
+  .chat-status.err{color:#ffb3c1; border-color:rgba(255,59,92,.35); background:rgba(255,59,92,.1)}
+  .chat-status.err::before{background:#ff3b5c}
+  .chat-status.bus{color:#c4b5fd; border-color:rgba(139,92,246,.35); background:rgba(139,92,246,.12)}
+  .chat-status.bus::before{background:#a78bfa}
+  .chat-head .grow{flex:1}
+  .link-btn{
+    background:none; border:0; color:var(--dim); font-size:12px;
+    cursor:pointer; padding:5px 7px; border-radius:7px; font-family:inherit;
+  }
+  .link-btn:hover{color:#dfe3f0; background:rgba(255,255,255,.06)}
+  .chat-list{
+    flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain;
+    padding:12px 12px 6px; display:flex; flex-direction:column; gap:7px;
+    scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.16) transparent;
+  }
+  .chat-list::-webkit-scrollbar{width:7px}
+  .chat-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14); border-radius:4px}
+  .chat-list::-webkit-scrollbar-track{background:transparent}
+  .msg{
+    font-size:13.5px; line-height:1.52; word-break:break-word;
+    padding:4px 8px; border-radius:9px;
+    animation:msg-in .22s ease both;
+  }
+  @keyframes msg-in{from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:none}}
+  .msg .nick{font-weight:700; margin-right:6px}
+  .msg .text{color:#d6daea}
+  .msg.self{background:rgba(139,92,246,.15); box-shadow:inset 0 0 0 1px rgba(139,92,246,.22)}
+  .msg .badge-host{
+    font-size:10px; font-weight:800; letter-spacing:.5px; color:#fff;
+    background:linear-gradient(135deg,#ff2d55,#dc143c);
+    padding:1px 5px; border-radius:4px; margin-right:5px; vertical-align:1px;
+  }
+  .msg.system{
+    align-self:center; text-align:center; max-width:96%;
+    font-size:11.5px; line-height:1.6; color:#8b92a8;
+    background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.05);
+    padding:5px 10px; border-radius:999px;
+  }
+  .chat-form{
+    flex:0 0 auto; border-top:1px solid var(--line);
+    padding:10px 12px 12px; background:rgba(9,11,17,.5);
+  }
+  .chat-tools{
+    display:flex; align-items:center; gap:12px;
+    margin-bottom:8px; font-size:12px; color:var(--muted); flex-wrap:wrap;
+  }
+  .chat-tools .nick-line{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .chat-tools b{color:#c9cee0; font-weight:600}
+  .input-row{display:flex; gap:8px}
+  .chat-input{
+    flex:1; min-width:0; background:#0b0d15;
+    border:1px solid var(--line); border-radius:10px;
+    color:var(--text); font:inherit; font-size:13.5px;
+    padding:10px 12px; transition:border-color .18s, box-shadow .18s;
+  }
+  .chat-input::placeholder{color:#666d80}
+  .chat-input:focus{outline:none; border-color:rgba(139,92,246,.85); box-shadow:0 0 0 3px rgba(139,92,246,.16)}
+  .send-btn{
+    flex:0 0 auto; border:0; border-radius:10px; cursor:pointer;
+    padding:0 16px; font:inherit; font-size:13.5px; font-weight:700; color:#fff;
+    background:linear-gradient(135deg,#9d6bff,#6d28d9);
+    box-shadow:0 10px 24px -14px rgba(139,92,246,1);
+    transition:filter .18s, transform .12s;
+  }
+  .send-btn:hover{filter:brightness(1.08)}
+  .send-btn:active{transform:translateY(1px)}
+  .send-btn:focus-visible{outline:2px solid #c4b5fd; outline-offset:2px}
+
+  /* 开关 */
+  .switch{display:inline-flex; align-items:center; gap:7px; cursor:pointer; user-select:none; color:#9aa1b8; font-size:12px}
+  .switch input{position:absolute; opacity:0; width:1px; height:1px}
+  .switch .track{
+    width:36px; height:20px; border-radius:999px; background:rgba(255,255,255,.15);
+    position:relative; transition:background .2s; flex:0 0 auto;
+  }
+  .switch .track::after{
+    content:""; position:absolute; top:3px; left:3px; width:14px; height:14px;
+    border-radius:50%; background:#fff; transition:transform .2s;
+  }
+  .switch input:checked + .track{background:linear-gradient(135deg,#9d6bff,#6d28d9)}
+  .switch input:checked + .track::after{transform:translateX(16px)}
+  .switch input:focus-visible + .track{outline:2px solid var(--accent); outline-offset:2px}
+
+  /* ===== 弹窗 ===== */
+  .modal{
+    position:fixed; inset:0; z-index:60; display:none;
+    place-items:center; padding:20px;
+    background:rgba(4,5,10,.72); backdrop-filter:blur(8px);
+  }
+  .modal.open{display:grid}
+  .modal-card{
+    width:min(540px,100%); max-height:calc(100vh - 40px); overflow-y:auto;
+    background:linear-gradient(180deg,#171b29,#101320);
+    border:1px solid rgba(255,255,255,.1); border-radius:20px;
+    padding:22px; box-shadow:0 40px 100px -30px rgba(0,0,0,.95);
+    animation:card-in .24s cubic-bezier(.2,1.2,.4,1) both;
+  }
+  @keyframes card-in{from{opacity:0; transform:translateY(12px) scale(.98)} to{opacity:1; transform:none}}
+  .modal-head{display:flex; align-items:flex-start; gap:12px; margin-bottom:18px}
+  .modal-head h2{margin:0 0 4px; font-size:17px}
+  .modal-head p{margin:0; font-size:12.5px; color:var(--muted); line-height:1.6}
+  .modal-head .grow{flex:1}
+  .field{margin-bottom:16px}
+  .field > label{display:block; font-size:12.5px; color:#a5abc0; margin-bottom:7px; letter-spacing:.2px}
+  .input{
+    width:100%; background:#0b0d16; border:1px solid var(--line);
+    border-radius:10px; color:var(--text); font:inherit; font-size:13.5px;
+    padding:11px 12px; transition:border-color .18s, box-shadow .18s;
+  }
+  .input:focus{outline:none; border-color:rgba(139,92,246,.85); box-shadow:0 0 0 3px rgba(139,92,246,.16)}
+  .hint{font-size:11.5px; color:var(--dim); line-height:1.65; margin:7px 0 0}
+  .samples{display:flex; gap:8px; flex-wrap:wrap; margin-top:9px}
+  .samples button{
+    font:inherit; font-size:11.5px; color:#c3c8db; cursor:pointer;
+    background:rgba(255,255,255,.05); border:1px solid var(--line);
+    border-radius:8px; padding:5px 10px;
+  }
+  .samples button:hover{border-color:rgba(139,92,246,.55); color:#fff}
+  .switch-row{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    padding:11px 0; border-top:1px solid rgba(255,255,255,.06);
+  }
+  .switch-row .switch-text{font-size:13px; color:#d3d7e6}
+  .switch-row .switch-text small{display:block; font-size:11.5px; color:var(--dim); margin-top:3px; font-weight:400}
+
+  /* 用户中心 */
+  .user-card{
+    display:flex; align-items:center; gap:14px;
+    padding:14px; margin-bottom:18px; border-radius:14px;
+    background:rgba(255,255,255,.04); border:1px solid var(--line);
+  }
+  .avatar{
+    width:54px; height:54px; border-radius:50%; flex:0 0 auto;
+    display:grid; place-items:center; font-size:21px; font-weight:700; color:#fff;
+    background:#8b5cf6; box-shadow:inset 0 1px 0 rgba(255,255,255,.3);
+  }
+  .user-name{font-size:16px; font-weight:700; letter-spacing:.2px}
+  .user-meta{font-size:12px; color:var(--muted); margin-top:4px}
+  .user-meta b{color:#c9cee0; font-weight:600}
+  .swatches{display:flex; gap:10px; flex-wrap:wrap}
+  .swatch{
+    width:30px; height:30px; border-radius:50%; border:2px solid transparent;
+    cursor:pointer; padding:0; transition:transform .15s, box-shadow .15s;
+  }
+  .swatch:hover{transform:scale(1.08)}
+  .swatch.on{border-color:#fff; box-shadow:0 0 0 3px rgba(139,92,246,.5)}
+  .swatch:focus-visible{outline:2px solid #c4b5fd; outline-offset:2px}
+  .modal-foot{display:flex; align-items:center; gap:10px; margin-top:18px; flex-wrap:wrap}
+  .modal-foot .grow{flex:1}
+  .btn{
+    font:inherit; font-size:13.5px; font-weight:600; cursor:pointer;
+    padding:10px 16px; border-radius:10px; border:1px solid transparent;
+    transition:filter .18s, background .18s, border-color .18s;
+  }
+  .btn:focus-visible{outline:2px solid #c4b5fd; outline-offset:2px}
+  .btn-primary{background:linear-gradient(135deg,#9d6bff,#6d28d9); color:#fff; box-shadow:0 12px 28px -16px rgba(139,92,246,1)}
+  .btn-primary:hover{filter:brightness(1.08)}
+  .btn-ghost{background:rgba(255,255,255,.05); border-color:var(--line); color:#cfd3e4}
+  .btn-ghost:hover{background:rgba(255,255,255,.1)}
+  .btn-text{background:none; border:0; color:var(--dim); padding:10px 4px}
+  .btn-text:hover{color:#ff94aa}
+
+  /* ===== 页脚 ===== */
+  .foot{
+    position:relative; z-index:1;
+    padding:0 20px 24px; text-align:center;
+    font-size:11.5px; color:#5f6577; line-height:1.8;
+  }
+  .foot code{font-family:ui-monospace,Consolas,monospace; color:#8d93a8; font-size:11px}
+
+  /* ===== 响应式 ===== */
+  @media (max-width:1080px){
+    .layout{grid-template-columns:minmax(0,1fr) 326px}
+    .topbar .nav{display:none}
+  }
+  @media (max-width:960px){
+    .layout{grid-template-columns:minmax(0,1fr); padding:14px}
+    .chat{position:static; height:min(56vh,500px); min-height:340px; max-height:none; order:2}
+    .stage{order:1}
+    .desc{display:none}
+    .foot{text-align:left}
+  }
+  @media (max-width:620px){
+    .topbar{padding:9px 12px; gap:10px}
+    .brand .tag,.topbar .divider{display:none}
+    .topbar .grow{flex:1}
+    .pill.viewers{display:none}
+    .user-chip{padding:4px}
+    .user-chip .nick-text{display:none}
+    .player{border-radius:12px}
+    .title-row h1{font-size:17px}
+    .chipless{display:none}
+    .volume{display:none}
+    .time{font-size:11px; padding:0 3px}
+    .ctrl-row{gap:2px}
+    .ctrl-row .spacer{flex:1 1 auto}
+    .poster-hint{display:none}
+    .chat{border-radius:12px; height:58vh}
+    .modal-card{padding:18px; border-radius:16px}
+    .stream-info .meta-row{font-size:12px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001s !important; animation-iteration-count:1 !important; transition-duration:.001s !important}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
+      <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#6d28d9"/>
+      </linearGradient></defs>
+      <rect width="32" height="32" rx="9" fill="url(#lg)"/>
+      <path d="M12.5 9.5l10 6.5-10 6.5z" fill="#fff"/>
+    </svg>
+    <span>聚光直播</span>
+    <span class="tag">DEMO</span>
+  </div>
+  <div class="divider"></div>
+  <nav class="nav" aria-label="频道分类">
+    <span class="active">综合</span><span>游戏</span><span>音乐</span><span>科技</span>
+  </nav>
+  <div class="grow"></div>
+  <span class="pill live"><i></i>LIVE</span>
+  <span class="pill viewers" title="在线人数（演示数据）">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.6"/>
+    </svg>
+    <span id="viewersText">1.2万</span> 人在看
+  </span>
+  <button class="user-chip" id="btnSettingsTop" type="button" aria-label="用户中心" title="用户中心">
+    <span class="mini-avatar" id="topAvatar">观</span>
+    <span class="nick-text" id="topNick">观众</span>
+  </button>
+</header>
+
+<div class="layout">
+  <section class="stage">
+    <div class="player" id="player" tabindex="-1">
+      <video id="video" playsinline preload="metadata" aria-label="直播画面"></video>
+
+      <div class="danmaku-layer" id="danmakuLayer" aria-hidden="true"></div>
+
+      <div class="player-badges">
+        <span class="badge-live"><i></i>LIVE</span>
+        <span class="badge-quality" id="qualityBadge">HD</span>
+      </div>
+
+      <div class="poster" id="poster" role="button" tabindex="0" aria-label="点击播放直播">
+        <div class="poster-inner">
+          <div class="poster-kicker"><i></i>LIVE 直播间</div>
+          <h2 class="poster-title">我的直播间</h2>
+          <p class="poster-sub" id="posterSub">HLS 直播流 · 点击播放</p>
+          <button class="big-play" id="btnBigPlay" type="button" aria-label="开始播放">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72L19.5 12z"/></svg>
+          </button>
+          <p class="poster-hint">点击任意位置开始播放 · 右上角可进入用户中心</p>
+        </div>
+      </div>
+
+      <div class="spinner" id="spinner" aria-hidden="true"></div>
+
+      <button class="center-play" id="centerPlay" type="button" aria-label="播放">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72L19.5 12z"/></svg>
+      </button>
+
+      <div class="error-box" id="errorBox">
+        <div class="error-inner">
+          <div class="error-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
+              <path d="M12 7v7"/><circle cx="12" cy="17.4" r="1.1" fill="currentColor" stroke="none"/>
+              <path d="M10.3 3.9 2.9 17a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+            </svg>
+          </div>
+          <h3>播放失败</h3>
+          <p id="errorText">无法加载直播流。</p>
+          <div class="error-actions">
+            <button class="btn btn-primary" id="btnRetry" type="button">重试</button>
+            <button class="btn btn-ghost" id="btnErrorRefresh" type="button">刷新页面</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="cart-fab hide" id="cartFab" type="button" aria-label="打开小黄车">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 6h2l2.2 10.2a1.6 1.6 0 0 0 1.6 1.3h7.9a1.6 1.6 0 0 0 1.6-1.2L21 9H7"/>
+          <circle cx="10" cy="20" r="1.3" fill="currentColor" stroke="none"/>
+          <circle cx="18" cy="20" r="1.3" fill="currentColor" stroke="none"/>
+        </svg>
+        <span class="cart-badge" id="cartBadge">0</span>
+      </button>
+
+      <div class="controls" id="controls">
+        <div class="seek-row"><input class="seek" id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="播放进度" disabled></div>
+        <div class="ctrl-row">
+          <button class="icon-btn" id="btnPlay" type="button" aria-label="播放 / 暂停" title="播放 / 暂停 (空格)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72L19.5 12z"/></svg>
+          </button>
+          <div class="volume">
+            <button class="icon-btn" id="btnMute" type="button" aria-label="静音" title="静音 (M)"></button>
+            <input class="vol" id="volBar" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="音量">
+          </div>
+          <span class="time" id="timeText">直播</span>
+          <span class="spacer"></span>
+          <button class="icon-btn" id="btnDanmaku" type="button" aria-label="弹幕开关" title="弹幕开关 (D)"></button>
+          <button class="icon-btn" id="btnSettings" type="button" aria-label="用户中心" title="用户中心">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="8.4" r="3.4"/><path d="M4.8 19.6c0-3.5 3.2-5.7 7.2-5.7s7.2 2.2 7.2 5.7"/>
+            </svg>
+          </button>
+          <button class="icon-btn" id="btnFull" type="button" aria-label="全屏" title="全屏 (F)"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stream-info">
+      <div class="title-row">
+        <h1>我的直播间</h1>
+        <span class="chip violet">HLS</span>
+        <span class="chip chipless">1080P</span>
+      </div>
+      <div class="meta-row">
+        <span class="dot-live"></span>
+        <span>主播 <b>测试频道</b></span>
+        <span>·</span>
+        <span>分类 <b>综合</b></span>
+        <span>·</span>
+        <span id="streamStatus">已就绪</span>
+      </div>
+      <p class="desc">纯前端直播观看页：支持 HLS（.m3u8）与 MP4 直链播放，带弹幕、聊天室、全屏与键盘快捷键。直播流由主播通过观看链接指定；观众可在右上角「用户中心」修改昵称、头像颜色和弹幕偏好。在线人数为展示数据。</p>
+    </div>
+  </section>
+
+  <aside class="chat" aria-label="聊天室">
+    <div class="chat-head">
+      <h2>聊天室</h2>
+      <span class="chat-online"><i></i><span id="onlineText">1.2万</span><span id="onlineSuffix"> 在线</span></span>
+      <span class="chat-status bus" id="chatStatus">本机演示</span>
+      <span class="grow"></span>
+      <button class="link-btn" id="btnClear" type="button">清屏</button>
+    </div>
+    <div class="chat-list" id="chatList" role="log" aria-live="polite" aria-label="聊天消息"></div>
+    <form class="chat-form" id="chatForm" autocomplete="off">
+      <div class="chat-tools">
+        <span class="nick-line">以 <b id="nickLabel">观众</b> 身份发言</span>
+        <label class="switch" title="弹幕开关">
+          <input type="checkbox" id="dmSwitch" checked>
+          <span class="track"></span>
+          <span>弹幕</span>
+        </label>
+      </div>
+      <div class="input-row">
+        <input class="chat-input" id="chatInput" type="text" maxlength="120" placeholder="说点什么…（回车发送）" aria-label="聊天内容">
+        <button class="send-btn" id="sendBtn" type="submit">发送</button>
+      </div>
+    </form>
+  </aside>
+</div>
+
+<footer class="foot">
+  单文件演示页面 · 视频来源示例：Big Buck Bunny（mux 测试流） · HLS 播放器：hls.js（自动尝试本地 / CDN） ·
+  按 <code>空格</code> 暂停、<code>F</code> 全屏、<code>M</code> 静音、<code>D</code> 弹幕<br>
+  离线使用：把 <code>hls.min.js</code> 放在本文件同目录，页面会优先加载本地文件<br>
+  <a href="开播.html" style="color:#9aa1b8">主播开播入口</a> ·
+  <a href="接入说明.html" style="color:#9aa1b8">部署与微信服务号接入说明</a>
+</footer>
+
+<div class="modal" id="userModal" role="dialog" aria-modal="true" aria-labelledby="userTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="grow">
+        <h2 id="userTitle">用户中心</h2>
+        <p>这里只显示你自己的信息，修改后会立刻生效。</p>
+      </div>
+      <button class="icon-btn" id="btnCloseUser" type="button" aria-label="关闭" style="color:#9aa1b8">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="user-card">
+      <div class="avatar" id="userAvatar">观</div>
+      <div class="user-info">
+        <div class="user-name" id="userNameView">观众</div>
+        <div class="user-meta">房间 <b id="userRoom">live</b> · <span id="userChatState">本机互通</span></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="userNickInput">昵称</label>
+      <input class="input" id="userNickInput" type="text" maxlength="16" placeholder="给自己起个名字">
+      <p class="hint">你的弹幕和聊天会显示这个昵称，最多 16 个字。</p>
+    </div>
+
+    <div class="field">
+      <span class="field-label">头像颜色</span>
+      <div class="swatches" id="userSwatches"></div>
+    </div>
+
+    <div class="switch-row">
+      <div class="switch-text">显示弹幕
+        <small>关闭后画面上不再滚动弹幕，聊天室照常可用</small>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="userDmSwitch">
+        <span class="track"></span>
+        <span>启用</span>
+      </label>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-text" id="btnClearUser" type="button">清空我的数据</button>
+      <span class="grow"></span>
+      <button class="btn btn-ghost" id="btnCancelUser" type="button">取消</button>
+      <button class="btn btn-primary" id="btnSaveUser" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="cart-sheet" id="cartSheet" aria-hidden="true">
+  <div class="cart-backdrop" id="cartBackdrop"></div>
+  <div class="cart-panel" role="dialog" aria-modal="true" aria-labelledby="cartTitle">
+    <div class="cart-head">
+      <h2 id="cartTitle">小黄车</h2>
+      <span class="cart-count" id="cartCount">0 件</span>
+      <span class="grow" style="flex:1"></span>
+      <button class="icon-btn" id="cartClose" type="button" aria-label="关闭" style="color:#9aa1b8">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="cart-list" id="cartList"></div>
+    <p class="cart-foot">商品由主播提供，点「去看看」会跳到商家页面完成下单与售后；本直播间不直接收款。</p>
+  </div>
+</div>
+
+<noscript>
+  <div style="padding:24px;text-align:center;color:#ff8fa3">此页面需要启用 JavaScript 才能播放直播。</div>
+</noscript>
+
+<script src="config.js"></script>
+<script src="products.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- 常量与默认配置 ---------- */
+  var LS_KEY = 'zhibo:settings:v1';
+  var HLS_SAMPLE = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+  var MP4_SAMPLE = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+
+  /* hls.js 按顺序尝试：同目录本地文件（离线可用）→ jsDelivr → unpkg */
+  var HLS_SOURCES = [
+    'hls.min.js',
+    'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js',
+    'https://unpkg.com/hls.js@1/dist/hls.min.js'
+  ];
+
+  var DEFAULTS = {
+    url: HLS_SAMPLE,
+    nick: '观众' + (1000 + Math.floor(Math.random() * 9000)),
+    danmaku: true,
+    simulate: true,
+    volume: 0.8,
+    chatUrl: '',
+    room: 'live',
+    virtualViewers: 12800
+  };
+
+  var NICK_COLORS = ['#7dd3fc', '#fca5a5', '#c4b5fd', '#86efac', '#fcd34d', '#f9a8d4', '#93c5fd', '#5eead4', '#fda4af'];
+  var SIM_NICKS = ['夜行者', '小鹿乱撞', '咸鱼翻身', '阿杰', '菜就多练', '柠檬精', '追光者', '摸鱼达人', '一只猫', '路过的风', '代码搬运工', '晚风', '柚子茶', '不吃香菜', '熬夜冠军', '薯条', '北巷', '小满', '橘子汽水', '随缘'];
+  var SIM_MSGS = ['主播好！', '这画面太清晰了吧', '666', '来了来了', '刚进来，在播什么？', '这个测试流我也用过', '清晰度不错', '今晚播到几点？',
+                  '关注了', '这网速可以啊', '打卡', '有回放吗', '弹幕护体', '哈哈哈', '前排', '第一次来，先关注了',
+                  '主播声音好听', '画面好稳', '来了老弟', '坐等开播', '这也太顶了', '求个链接', '隔壁来的', '晚上好呀',
+                  '刚下班就赶来了', '每天都来看', '这BGM不错', '有一起看的吗', '弹幕好热闹', '打卡打卡'];
+
+  var ICONS = {
+    play: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72L19.5 12z"/></svg>',
+    pause: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg>',
+    volume: '<svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.4v5.2h3.1L11.4 18V6L7.1 9.4H4z" fill="currentColor"/><path d="M14.6 9.2a4 4 0 0 1 0 5.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M17.2 6.7a7.6 7.6 0 0 1 0 10.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    muted: '<svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.4v5.2h3.1L11.4 18V6L7.1 9.4H4z" fill="currentColor"/><path d="M14.6 9.6l4.8 4.8M19.4 9.6l-4.8 4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    danmaku: '<svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 5h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7.6L8 21.6V18H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>',
+    full: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+    exitFull: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>'
+  };
+
+  /* ---------- 元素引用 ---------- */
+  var player = $('player');
+  var video = $('video');
+  var poster = $('poster');
+  var posterSub = $('posterSub');
+  var danmakuLayer = $('danmakuLayer');
+  var errorText = $('errorText');
+  var streamStatus = $('streamStatus');
+  var timeText = $('timeText');
+  var seek = $('seek');
+  var volBar = $('volBar');
+  var btnPlay = $('btnPlay');
+  var btnMute = $('btnMute');
+  var btnFull = $('btnFull');
+  var btnDanmaku = $('btnDanmaku');
+  var btnSettings = $('btnSettings');
+  var btnSettingsTop = $('btnSettingsTop');
+  var chatList = $('chatList');
+  var chatForm = $('chatForm');
+  var chatInput = $('chatInput');
+  var chatStatus = $('chatStatus');
+  var dmSwitch = $('dmSwitch');
+  var nickLabel = $('nickLabel');
+  var onlineText = $('onlineText');
+  var onlineSuffix = $('onlineSuffix');
+  var viewersText = $('viewersText');
+  var topAvatar = $('topAvatar');
+  var topNick = $('topNick');
+  var userModal = $('userModal');
+  var userNickInput = $('userNickInput');
+  var userDmSwitch = $('userDmSwitch');
+  var userSwatches = $('userSwatches');
+  var userAvatar = $('userAvatar');
+  var userNameView = $('userNameView');
+  var userRoomText = $('userRoom');
+  var userChatState = $('userChatState');
+  var cartFab = $('cartFab');
+  var cartBadge = $('cartBadge');
+  var cartSheet = $('cartSheet');
+  var cartBackdrop = $('cartBackdrop');
+  var cartClose = $('cartClose');
+  var cartList = $('cartList');
+  var cartCount = $('cartCount');
+
+  /* ---------- 状态 ---------- */
+  var USER_KEY = 'zhibo:user:v1';
+  var USER_DEFAULTS = {
+    nick: '观众' + (1000 + Math.floor(Math.random() * 9000)),
+    danmaku: true,
+    volume: 0.8,
+    avatar: 0
+  };
+  var AVATAR_COLORS = ['#8b5cf6', '#ff3b5c', '#38bdf8', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#22d3ee'];
+
+  var settings = loadSettings();
+  var CFG = window.ZHIBO_CONFIG || {};
+  var user = loadUser(settings);
+
+  /* 服务号菜单 / 分享链接可用 ?stream=... 指定本场流，?title=... 指定标题
+     参数只影响本次打开，不会覆盖浏览器里已保存的地址 */
+  var query = {};
+  try {
+    var search = (location.search || '').replace(/^\?/, '');
+    search.split('&').forEach(function (pair) {
+      if (!pair) return;
+      var idx = pair.indexOf('=');
+      var k = idx < 0 ? pair : pair.slice(0, idx);
+      var v = idx < 0 ? '' : pair.slice(idx + 1);
+      try { query[decodeURIComponent(k)] = decodeURIComponent(v.replace(/\+/g, ' ')); } catch (e) {}
+    });
+  } catch (e) {}
+  var paramStream = query.stream || query.url || '';
+  var paramTitle = query.title || '';
+  var paramChat = query.chat || '';
+  var paramChatPoll = query.chatpoll === '1' || query.transport === 'poll';
+  var paramMirror = query.mirror === '1' || query.mirror === 'true';
+  var paramApi = query.api || '';
+  var paramViewers = Number(query.viewers || 0);
+  if (isFinite(paramViewers) && paramViewers >= 10000) settings.virtualViewers = Math.min(9999999, Math.round(paramViewers));
+  var currentUrl = paramStream || CFG.streamUrl || settings.url;
+
+  var hls = null;
+  var isVod = false;
+  var netRetry = 0;
+  var mediaRetry = 0;
+  var viewers = 12680;
+  var laneCursor = 0;
+  var simTimer = null;
+  var viewerTimer = null;
+  var idleTimer = null;
+  var lastFocused = null;
+
+  /* ---------- 设置持久化 ---------- */
+  function loadSettings() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          var merged = {};
+          for (var k in DEFAULTS) { if (Object.prototype.hasOwnProperty.call(DEFAULTS, k)) merged[k] = DEFAULTS[k]; }
+          for (var j in parsed) { if (Object.prototype.hasOwnProperty.call(parsed, j)) merged[j] = parsed[j]; }
+          return merged;
+        }
+      }
+    } catch (e) { /* 忽略：隐私模式等 */ }
+    var copy = {};
+    for (var key in DEFAULTS) { if (Object.prototype.hasOwnProperty.call(DEFAULTS, key)) copy[key] = DEFAULTS[key]; }
+    return copy;
+  }
+  function saveSettings() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) {}
+  }
+
+  /* 用户只保存自己的信息：昵称、头像色、弹幕开关、音量 */
+  function loadUser(legacy) {
+    var base = {}, k;
+    for (k in USER_DEFAULTS) { if (Object.prototype.hasOwnProperty.call(USER_DEFAULTS, k)) base[k] = USER_DEFAULTS[k]; }
+    try {
+      var raw = localStorage.getItem(USER_KEY);
+      if (raw) {
+        var saved = JSON.parse(raw);
+        if (saved && typeof saved === 'object') {
+          for (k in saved) { if (Object.prototype.hasOwnProperty.call(saved, k)) base[k] = saved[k]; }
+          return base;
+        }
+      }
+      /* 兼容旧版本：昵称/弹幕/音量以前存放在站点设置里 */
+      if (legacy) {
+        if (legacy.nick) base.nick = legacy.nick;
+        if (typeof legacy.danmaku === 'boolean') base.danmaku = legacy.danmaku;
+        if (typeof legacy.volume === 'number') base.volume = legacy.volume;
+      }
+    } catch (e) {}
+    return base;
+  }
+  function saveUser() {
+    try { localStorage.setItem(USER_KEY, JSON.stringify(user)); } catch (e) {}
+  }
+  function avatarColor() {
+    var i = Number(user.avatar);
+    if (!isFinite(i) || i < 0 || i >= AVATAR_COLORS.length) i = 0;
+    return AVATAR_COLORS[i];
+  }
+  function avatarChar() {
+    var n = String(user.nick || '').trim();
+    return n ? n.charAt(0) : '观';
+  }
+
+  /* ---------- 小工具 ---------- */
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function fmtTime(sec) {
+    if (!isFinite(sec) || sec < 0) sec = 0;
+    var s = Math.floor(sec % 60), m = Math.floor(sec / 60) % 60, h = Math.floor(sec / 3600);
+    return h > 0 ? h + ':' + pad(m) + ':' + pad(s) : pad(m) + ':' + pad(s);
+  }
+  function fmtCount(n) {
+    if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + '万';
+    return String(n);
+  }
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function colorFor(nick) {
+    var hash = 0, i;
+    for (i = 0; i < nick.length; i++) hash = (hash * 31 + nick.charCodeAt(i)) & 0xffff;
+    return NICK_COLORS[hash % NICK_COLORS.length];
+  }
+  function setStatus(text) { streamStatus.textContent = text; }
+  function setSpinner(on) { player.classList.toggle('loading', !!on); }
+
+  function setPoster(on) {
+    player.classList.toggle('started', !on);
+  }
+  function setError(message) {
+    errorText.textContent = message;
+    player.classList.add('errored');
+    setSpinner(false);
+  }
+  function clearError() { player.classList.remove('errored'); }
+
+  /* ---------- 播放器核心 ---------- */
+  function isHlsUrl(u) { return /\.m3u8(\?|#|$)/i.test(u || ''); }
+
+  /* 依次尝试多个来源加载 hls.js，全部失败时回调 false（页面降级但不报错） */
+  var hlsLoading = false;
+  function loadHls(done) {
+    if (window.Hls) { done(true); return; }
+    if (hlsLoading) { done(false); return; }
+    hlsLoading = true;
+    var index = 0;
+
+    function attempt() {
+      if (index >= HLS_SOURCES.length) { hlsLoading = false; done(false); return; }
+      var src = HLS_SOURCES[index++];
+      var script = document.createElement('script');
+      var settled = false;
+      var timer = setTimeout(function () { finish(false); }, 7000);
+
+      function finish(ok) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (!ok) {
+          script.onload = script.onerror = null;
+          if (script.parentNode) script.parentNode.removeChild(script);
+          attempt();
+          return;
+        }
+        hlsLoading = false;
+        done(true);
+      }
+
+      script.src = src;
+      script.async = true;
+      script.onload = function () { finish(!!window.Hls); };
+      script.onerror = function () { finish(false); };
+      document.head.appendChild(script);
+    }
+
+    attempt();
+  }
+
+  function destroyPlayer() {
+    if (hls) {
+      try { hls.destroy(); } catch (e) {}
+      hls = null;
+    }
+    if (video.getAttribute('src')) {
+      video.pause();
+      video.removeAttribute('src');
+      try { video.load(); } catch (e) {}
+    }
+    isVod = false;
+    player.classList.remove('is-vod', 'playing');
+    netRetry = 0;
+    mediaRetry = 0;
+  }
+
+  function prepareStream(url) {
+    destroyPlayer();
+    clearError();
+    setSpinner(false);
+    setPoster(true);
+    seek.disabled = true;
+    timeText.textContent = '直播';
+
+    if (!url) {
+      posterSub.textContent = '暂未配置直播流，请联系主播获取观看链接';
+      setStatus('未设置地址');
+      return false;
+    }
+
+    posterSub.textContent = isHlsUrl(url) ? 'HLS 直播流 · 点击播放' : '媒体直链 · 点击播放';
+    setStatus('连接中…');
+    setSpinner(true);
+
+    if (isHlsUrl(url)) {
+      if (!window.Hls) {
+        setPoster(true);
+        setSpinner(false);
+        posterSub.textContent = '播放器脚本未加载 · 点播放可重试，或把 hls.min.js 放到同目录';
+        setStatus('需要联网加载播放器');
+        return false;
+      }
+      if (window.Hls.isSupported()) {
+        hls = new window.Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 60 });
+        hls.attachMedia(video);
+        hls.on(window.Hls.Events.MEDIA_ATTACHED, function () { hls.loadSource(url); });
+        hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
+          setSpinner(false);
+          setStatus('直播流已就绪');
+        });
+        hls.on(window.Hls.Events.ERROR, onHlsError);
+        return true;
+      }
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+        return true;
+      }
+      setError('当前浏览器不支持 HLS 播放，请使用最新版 Chrome / Edge / Safari。');
+      setStatus('不支持 HLS');
+      return false;
+    }
+
+    video.src = url;
+    return true;
+  }
+
+  function onHlsError(event, data) {
+    if (!data || !data.fatal) return;
+    var Hls = window.Hls;
+    if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+      if (netRetry < 1) { netRetry++; setStatus('网络异常，重试中…'); hls.startLoad(); return; }
+      setError('无法加载直播流：请确认地址可访问、是真实媒体直链，且服务端允许跨域（CORS）。');
+      setStatus('加载失败');
+    } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+      if (mediaRetry < 1) { mediaRetry++; setStatus('解码异常，恢复中…'); hls.recoverMediaError(); return; }
+      setError('视频解码失败，请尝试其他直播地址。');
+      setStatus('解码失败');
+    } else {
+      setError('播放器发生错误，请重试或更换地址。');
+      setStatus('播放出错');
+    }
+  }
+
+  function playVideo() {
+    if (paramMirror) {
+      if (video.srcObject) {
+        var pr = video.play();
+        if (pr && pr.catch) pr.catch(function () {});
+      }
+      return;
+    }
+    if (player.classList.contains('errored')) { retry(); return; }
+
+    /* hls.js 尚未就绪：先尝试补加载，失败再给可操作的提示 */
+    if (isHlsUrl(currentUrl) && !window.Hls) {
+      setSpinner(true);
+      setStatus('加载播放器中…');
+      loadHls(function (ok) {
+        prepareStream(currentUrl);
+        if (ok) {
+          playVideo();
+        } else {
+          setSpinner(false);
+          setPoster(false);
+          setError('未能加载 HLS 播放器脚本 hls.js。请确认网络可用后点「重试」；若要离线使用，把 hls.min.js 放在本页面同目录即可。');
+          setStatus('播放器脚本缺失');
+        }
+      });
+      return;
+    }
+
+    if (!video.getAttribute('src') && !hls) { prepareStream(currentUrl); }
+    var p = video.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(function () {
+        setSpinner(false);
+        setPoster(true);
+      });
+    }
+    setPoster(false);
+    setSpinner(true);
+  }
+
+  function togglePlay() {
+    if (video.paused) playVideo(); else video.pause();
+  }
+
+  function retry() {
+    clearError();
+    prepareStream(currentUrl);
+    playVideo();
+  }
+
+  function updatePlayIcon() {
+    btnPlay.innerHTML = video.paused ? ICONS.play : ICONS.pause;
+    btnPlay.setAttribute('aria-label', video.paused ? '播放' : '暂停');
+  }
+
+  function updateTimeDisplay() {
+    if (isVod && isFinite(video.duration) && video.duration > 0) {
+      timeText.textContent = fmtTime(video.currentTime) + ' / ' + fmtTime(video.duration);
+    } else {
+      timeText.textContent = '直播';
+    }
+  }
+
+  function updateVolumeUI() {
+    var muted = video.muted || video.volume === 0;
+    btnMute.innerHTML = muted ? ICONS.muted : ICONS.volume;
+    btnMute.setAttribute('aria-label', muted ? '取消静音' : '静音');
+    volBar.value = muted ? 0 : video.volume;
+  }
+
+  function applyVolume(value) {
+    var v = Math.max(0, Math.min(1, value));
+    video.volume = v;
+    video.muted = v === 0;
+    user.volume = v;
+    saveUser();
+    updateVolumeUI();
+  }
+
+  function toggleMute() {
+    if (video.muted || video.volume === 0) {
+      video.muted = false;
+      if (video.volume === 0) video.volume = user.volume > 0 ? user.volume : 0.8;
+    } else {
+      video.muted = true;
+    }
+    updateVolumeUI();
+  }
+
+  /* ---------- 全屏 ---------- */
+  function isFullscreen() { return document.fullscreenElement === player; }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      if (player.requestFullscreen) {
+        player.requestFullscreen().catch(function () {});
+      } else if (video.webkitEnterFullscreen) {
+        video.webkitEnterFullscreen();
+      }
+    } else if (document.exitFullscreen) {
+      document.exitFullscreen().catch(function () {});
+    }
+  }
+
+  function syncFullscreenIcon() {
+    btnFull.innerHTML = isFullscreen() ? ICONS.exitFull : ICONS.full;
+    btnFull.setAttribute('aria-label', isFullscreen() ? '退出全屏' : '全屏');
+  }
+
+  /* ---------- 聊天室 ---------- */
+  function addChat(opts) {
+    var node = document.createElement('div');
+    if (opts.system) {
+      node.className = 'msg system';
+      node.textContent = opts.text;
+    } else {
+      node.className = 'msg' + (opts.self ? ' self' : '');
+      if (opts.host) {
+        var badge = document.createElement('span');
+        badge.className = 'badge-host';
+        badge.textContent = '主播';
+        node.appendChild(badge);
+      }
+      var nick = document.createElement('span');
+      nick.className = 'nick';
+      nick.textContent = opts.nick;
+      nick.style.color = opts.color || colorFor(opts.nick);
+      var text = document.createElement('span');
+      text.className = 'text';
+      text.textContent = opts.text;
+      node.appendChild(nick);
+      node.appendChild(text);
+    }
+
+    var nearBottom = chatList.scrollHeight - chatList.scrollTop - chatList.clientHeight < 80;
+    chatList.appendChild(node);
+    while (chatList.children.length > 260) chatList.removeChild(chatList.firstElementChild);
+    if (nearBottom) chatList.scrollTop = chatList.scrollHeight;
+  }
+
+  function sendMessage(raw) {
+    var text = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
+    if (!text) return;
+
+    if (chat.mode === 'server' && chat.connected) {
+      sendToServer(text);
+    } else if (chat.mode === 'poll' && chat.connected) {
+      sendToCloud(text);
+    } else if (chat.mode === 'bus') {
+      busSend(text);
+    } else {
+      addChat({ nick: user.nick, text: text, self: true, color: avatarColor() });
+      if (user.danmaku) spawnDanmaku(text);
+    }
+
+    chatInput.value = '';
+    chatInput.focus();
+  }
+
+  function spawnDanmaku(text, color) {
+    if (!user.danmaku) return;
+    var el = document.createElement('div');
+    el.className = 'dm';
+    el.textContent = text;
+    el.style.color = color || pick(NICK_COLORS);
+    el.style.top = (5 + (laneCursor % 5) * 15) + '%';
+    laneCursor++;
+    el.style.animationDuration = (7.5 + Math.random() * 4).toFixed(2) + 's';
+    danmakuLayer.appendChild(el);
+    el.addEventListener('animationend', function () { if (el.parentNode) el.parentNode.removeChild(el); });
+    while (danmakuLayer.children.length > 40) danmakuLayer.removeChild(danmakuLayer.firstElementChild);
+  }
+
+  /* ---------- 弹幕通道：本机总线 / 自建服务 ---------- */
+  var chat = {
+    mode: 'off',
+    es: null,
+    connected: false,
+    online: 0,
+    fail: 0,
+    seen: {},
+    since: 0,
+    pollTimer: null,
+    clientId: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+  };
+
+  function chatBase() {
+    return String(paramChat || CFG.apiBase || settings.chatUrl || '').trim().replace(/\/+$/, '');
+  }
+  function chatRoom() {
+    var r = String(query.room || CFG.room || settings.room || 'live').replace(/[^A-Za-z0-9_-]/g, '');
+    return r || 'live';
+  }
+  function setChatChip(kind, text) {
+    chatStatus.className = 'chat-status ' + kind;
+    chatStatus.textContent = text;
+  }
+
+  /* 本机总线：同一台电脑的不同标签页通过 localStorage 互通 */
+  function busKey() { return 'zhibo:bus:' + chatRoom(); }
+  function readBus() {
+    try {
+      var arr = JSON.parse(localStorage.getItem(busKey()) || '[]');
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function onBusStorage(e) {
+    if (e.key !== busKey() || !e.newValue) return;
+    var list;
+    try { list = JSON.parse(e.newValue); } catch (err) { return; }
+    if (!Array.isArray(list)) return;
+    list.forEach(function (m) {
+      if (!m || !m.id || chat.seen[m.id]) return;
+      chat.seen[m.id] = 1;
+      deliver(m);
+    });
+  }
+  function busSend(text) {
+    var msg = {
+      id: 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      kind: 'chat', room: chatRoom(), nick: user.nick, text: text,
+      ts: Date.now(), clientId: chat.clientId
+    };
+    var arr = readBus();
+    arr.push(msg);
+    if (arr.length > 120) arr = arr.slice(arr.length - 120);
+    try { localStorage.setItem(busKey(), JSON.stringify(arr)); } catch (e) {}
+    chat.seen[msg.id] = 1;
+    deliver(msg);
+  }
+  function enableBus() {
+    disconnectChat(true);
+    chat.mode = 'bus';
+    setChatChip('bus', '本机互通');
+    var cutoff = Date.now() - 10 * 60 * 1000;
+    readBus().filter(function (m) { return m && m.id && m.ts > cutoff; })
+      .slice(-12).forEach(function (m) { chat.seen[m.id] = 1; deliver(m, true); });
+    window.addEventListener('storage', onBusStorage);
+  }
+
+  /* 自建服务：SSE 收消息，POST 发消息 */
+  function connectServer() {
+    disconnectChat(true);
+    var base = chatBase();
+    if (!base) { enableBus(); return; }
+    chat.mode = 'server';
+    setChatChip('warn', '连接中');
+    var es;
+    try {
+      es = new EventSource(base + '/events?room=' + encodeURIComponent(chatRoom()));
+    } catch (e) {
+      setChatChip('err', '不支持推送');
+      addChat({ system: true, text: '当前浏览器不支持实时推送，无法接收弹幕' });
+      return;
+    }
+    chat.es = es;
+    es.onopen = function () {
+      chat.fail = 0;
+      chat.connected = true;
+      setChatChip('ok', '已连接');
+    };
+    es.onmessage = function (ev) { onServerEvent(ev.data); };
+    es.onerror = function () {
+      chat.connected = false;
+      try { es.close(); } catch (e) {}
+      chat.es = null;
+      chat.fail++;
+      if (chat.fail <= 3) {
+        setChatChip('warn', '重连中');
+        setTimeout(function () { if (chat.mode === 'server') connectServer(); }, 1200 * chat.fail);
+      } else {
+        setChatChip('err', '未连接');
+        addChat({ system: true, text: '弹幕服务连不上（' + base + '），检查网络，或联系主播确认观看链接' });
+      }
+    };
+  }
+  function onServerEvent(raw) {
+    var m;
+    try { m = JSON.parse(raw); } catch (e) { return; }
+    if (m.kind === 'presence') {
+      chat.online = m.online;
+      return;
+    }
+    if (m.kind !== 'chat' || !m.id || chat.seen[m.id]) return;
+    chat.seen[m.id] = 1;
+    deliver(m);
+  }
+  function sendToServer(text) {
+    var payload = JSON.stringify({ room: chatRoom(), nick: user.nick, text: text, clientId: chat.clientId });
+    fetch(chatBase() + '/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).catch(function () {
+      addChat({ system: true, text: '发送失败：弹幕服务没有响应，请稍后再试' });
+    });
+  }
+  function deliver(m, quiet) {
+    if (!m || !m.text) return;
+    var nick = m.nick || '观众';
+    var self = !!(m.clientId && m.clientId === chat.clientId);
+    addChat({ nick: nick, text: m.text, self: self, color: self ? '#b39dff' : colorFor(nick) });
+    if (!quiet && user.danmaku) spawnDanmaku(m.text, self ? undefined : colorFor(nick));
+  }
+  function disconnectChat(silent) {
+    if (chat.es) { try { chat.es.close(); } catch (e) {} chat.es = null; }
+    if (chat.pollTimer) { clearInterval(chat.pollTimer); chat.pollTimer = null; }
+    chat.connected = false;
+    chat.mode = 'off';
+    window.removeEventListener('storage', onBusStorage);
+    if (!silent) setChatChip('bus', '本机演示');
+  }
+  function initChat() {
+    if (chatBase()) {
+      if (usePollingChat()) {
+        startPolling();
+        addChat({ system: true, text: '已接入云开发弹幕 · 房间 ' + chatRoom() });
+      } else {
+        connectServer();
+        addChat({ system: true, text: '弹幕已接入服务 · 房间 ' + chatRoom() });
+      }
+    } else {
+      enableBus();
+      addChat({ system: true, text: '本机互通模式：同一台电脑另开一个观看页，就能互相看到弹幕' });
+    }
+  }
+
+  /* 云开发（HTTP 云函数）不能长连接，改用轮询 */
+  function usePollingChat() {
+    if (paramChatPoll || CFG.chatPoll) return true;
+    return /tcloudbaseapp\.com|service\.tcloudbase\.com/.test(chatBase());
+  }
+
+  function startPolling() {
+    disconnectChat(true);
+    chat.mode = 'poll';
+    chat.connected = false;
+    chat.since = 0;
+    setChatChip('warn', '连接中');
+    pollMessages();
+    clearInterval(chat.pollTimer);
+    chat.pollTimer = setInterval(pollMessages, 3000);
+  }
+
+  function pollMessages() {
+    var base = chatBase();
+    if (!base) return;
+    fetch(base + '/messages?room=' + encodeURIComponent(chatRoom()) +
+      '&since=' + chat.since + '&clientId=' + encodeURIComponent(chat.clientId) +
+      '&role=viewer', { cache: 'no-store' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        chat.connected = true;
+        setChatChip('ok', '云开发');
+        if (data && Array.isArray(data.messages)) {
+          data.messages.forEach(function (m) {
+            if (m.ts > chat.since) chat.since = m.ts;
+            if (!m.id || chat.seen[m.id]) return;
+            chat.seen[m.id] = 1;
+            deliver(m);
+          });
+        }
+      })
+      .catch(function () {
+        chat.connected = false;
+        setChatChip('err', '未连接');
+      });
+  }
+
+  function sendToCloud(text) {
+    fetch(chatBase() + '/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room: chatRoom(), nick: user.nick, text: text, clientId: chat.clientId })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function () {
+      pollMessages();
+    }).catch(function () {
+      addChat({ system: true, text: '发送失败：云函数没有响应，请稍后再试' });
+    });
+  }
+
+  /* ---------- 观众人数（虚拟）/ 自动刷弹幕 ---------- */
+  function virtualBase() {
+    var v = Number(paramViewers);
+    if (!isFinite(v) || v < 10000) v = Number(CFG.viewers);
+    if (!isFinite(v) || v < 10000) v = Number(settings.virtualViewers);
+    if (!isFinite(v) || v < 10000) v = 12800;
+    return Math.min(9999999, Math.round(v));
+  }
+
+  function updateViewers() {
+    var base = virtualBase();
+    viewers = base + Math.round((Math.random() - 0.5) * Math.max(24, base * 0.008));
+    viewersText.textContent = fmtCount(viewers);
+    onlineText.textContent = fmtCount(viewers);
+    onlineSuffix.textContent = ' 在线';
+  }
+
+  function scheduleSim(delay) {
+    clearTimeout(simTimer);
+    simTimer = setTimeout(function () {
+      if (!settings.simulate) return;
+      if (document.visibilityState === 'visible') {
+        var nick = pick(SIM_NICKS);
+        var text = pick(SIM_MSGS);
+        addChat({ nick: nick, text: text, color: colorFor(nick) });
+        if (user.danmaku) spawnDanmaku(text, colorFor(nick));
+      }
+      scheduleSim(1500 + Math.random() * 1500);
+    }, delay == null ? 1400 : delay);
+  }
+
+  function startSim() {
+    clearTimeout(simTimer);
+    clearInterval(viewerTimer);
+    updateViewers();
+    viewerTimer = setInterval(updateViewers, 2600);
+    if (settings.simulate) scheduleSim(2200);
+  }
+
+  /* ---------- 界面同步 ---------- */
+  function updateAvatarUI() {
+    var color = avatarColor();
+    var ch = avatarChar();
+    topAvatar.textContent = ch;
+    topAvatar.style.background = color;
+    userAvatar.textContent = ch;
+    userAvatar.style.background = color;
+    topNick.textContent = user.nick;
+    userNameView.textContent = user.nick;
+  }
+
+  function syncUI() {
+    dmSwitch.checked = user.danmaku;
+    player.classList.toggle('dm-off', !user.danmaku);
+    btnDanmaku.classList.toggle('off', !user.danmaku);
+    btnDanmaku.innerHTML = ICONS.danmaku;
+    nickLabel.textContent = user.nick;
+    updateAvatarUI();
+    updateVolumeUI();
+    updatePlayIcon();
+    syncFullscreenIcon();
+  }
+
+  /* ---------- 用户中心 ---------- */
+  function renderSwatches() {
+    userSwatches.innerHTML = '';
+    AVATAR_COLORS.forEach(function (color, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch' + (i === Number(user.avatar) ? ' on' : '');
+      b.style.background = color;
+      b.setAttribute('aria-label', '头像颜色 ' + (i + 1));
+      b.addEventListener('click', function () {
+        user.avatar = i;
+        saveUser();
+        updateAvatarUI();
+        renderSwatches();
+      });
+      userSwatches.appendChild(b);
+    });
+  }
+
+  function openUser() {
+    lastFocused = document.activeElement;
+    userNickInput.value = user.nick;
+    userDmSwitch.checked = user.danmaku;
+    userNameView.textContent = user.nick;
+    userRoomText.textContent = chatRoom();
+    userChatState.textContent = chatStatus.textContent;
+    updateAvatarUI();
+    renderSwatches();
+    userModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    setTimeout(function () { userNickInput.focus(); }, 60);
+  }
+
+  function closeUser() {
+    userModal.classList.remove('open');
+    document.body.style.overflow = '';
+    if (lastFocused && lastFocused.focus) { try { lastFocused.focus(); } catch (e) {} }
+  }
+
+  function saveUserFromModal() {
+    user.nick = (userNickInput.value.trim() || USER_DEFAULTS.nick).slice(0, 16);
+    user.danmaku = userDmSwitch.checked;
+    saveUser();
+    syncUI();
+    closeUser();
+  }
+
+  function clearUserData() {
+    if (!window.confirm('确定清空你的昵称、头像颜色、弹幕设置和音量吗？')) return;
+    user.nick = '观众' + (1000 + Math.floor(Math.random() * 9000));
+    user.avatar = 0;
+    user.danmaku = true;
+    user.volume = 0.8;
+    saveUser();
+    applyVolume(user.volume);
+    syncUI();
+    openUser();
+  }
+
+  /* ---------- 小黄车（商品展示 + 跳转第三方） ---------- */
+  var PRODUCTS = [];
+  var fileProducts = (window.ZHIBO_PRODUCTS && window.ZHIBO_PRODUCTS.length ? window.ZHIBO_PRODUCTS : []).filter(function (p) {
+    return p && p.visible !== false;
+  });
+  var cartBound = false;
+
+  function money(v) {
+    var n = Number(v);
+    if (!isFinite(n)) return '¥—';
+    return '¥' + (n % 1 === 0 ? String(n) : n.toFixed(2));
+  }
+
+  function renderCart() {
+    cartList.innerHTML = '';
+    if (!PRODUCTS.length) {
+      var empty = document.createElement('div');
+      empty.className = 'cart-empty';
+      empty.textContent = '主播还没有上架商品';
+      cartList.appendChild(empty);
+      return;
+    }
+    PRODUCTS.forEach(function (p) {
+      var row = document.createElement('div');
+      row.className = 'product';
+
+      var thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      thumb.textContent = String(p.title || '商').charAt(0);
+      if (p.image) {
+        var img = document.createElement('img');
+        img.alt = '';
+        img.loading = 'lazy';
+        img.src = p.image;
+        img.onerror = function () { if (img.parentNode) thumb.removeChild(img); };
+        thumb.appendChild(img);
+      }
+      row.appendChild(thumb);
+
+      var info = document.createElement('div');
+      info.className = 'info';
+
+      var name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = p.title || '未命名商品';
+      info.appendChild(name);
+
+      var priceRow = document.createElement('div');
+      priceRow.className = 'row';
+      var price = document.createElement('span');
+      price.className = 'price';
+      price.textContent = money(p.price);
+      if (p.original && Number(p.original) > Number(p.price)) {
+        var s = document.createElement('s');
+        s.textContent = money(p.original);
+        price.appendChild(s);
+      }
+      priceRow.appendChild(price);
+      if (p.tag) {
+        var tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = p.tag;
+        priceRow.appendChild(tag);
+      }
+      info.appendChild(priceRow);
+      row.appendChild(info);
+
+      var go;
+      if (p.url) {
+        go = document.createElement('a');
+        go.className = 'go';
+        go.href = p.url;
+        go.target = '_blank';
+        go.rel = 'noopener noreferrer';
+        go.textContent = '去看看';
+      } else {
+        go = document.createElement('span');
+        go.className = 'go disabled';
+        go.textContent = '暂未上架';
+      }
+      row.appendChild(go);
+      cartList.appendChild(row);
+    });
+  }
+
+  function openCart() {
+    if (!PRODUCTS.length) return;
+    cartSheet.classList.add('open');
+    cartSheet.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeCart() {
+    cartSheet.classList.remove('open');
+    cartSheet.setAttribute('aria-hidden', 'true');
+    if (!userModal.classList.contains('open')) document.body.style.overflow = '';
+  }
+
+  function initCart() {
+    applyProducts(fileProducts);
+    if (productsApiBase()) {
+      fetchProducts();
+      setInterval(fetchProducts, 60000);
+    }
+  }
+
+  function bindCart() {
+    if (cartBound) return;
+    cartBound = true;
+    cartFab.addEventListener('click', openCart);
+    cartClose.addEventListener('click', closeCart);
+    cartBackdrop.addEventListener('click', closeCart);
+  }
+
+  function applyProducts(list) {
+    PRODUCTS = (Array.isArray(list) ? list : []).filter(function (p) {
+      return p && p.visible !== false;
+    });
+    renderCart();
+    cartBadge.textContent = String(PRODUCTS.length);
+    cartCount.textContent = PRODUCTS.length + ' 件';
+    cartFab.classList.toggle('hide', !PRODUCTS.length);
+    if (!PRODUCTS.length) closeCart();
+    else bindCart();
+  }
+
+  function productsApiBase() {
+    return String(paramApi || CFG.apiBase || '').replace(/\/+$/, '');
+  }
+
+  function fetchProducts() {
+    var base = productsApiBase();
+    if (!base) return;
+    fetch(base + '/products?room=' + encodeURIComponent(chatRoom()), { cache: 'no-store' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (data && Array.isArray(data.products)) applyProducts(data.products);
+      })
+      .catch(function () { /* 服务端暂时不可用时，保留 products.js 里的商品 */ });
+  }
+
+  /* ---------- 本机镜像接收（WebRTC，同一浏览器） ---------- */
+  var MIRROR_OFFER_KEY = 'zhibo:mirror:offer';
+  var MIRROR_ANSWER_KEY = 'zhibo:mirror:answer';
+  var MIRROR_CAND_OFFER = 'zhibo:mirror:cand:offer';
+  var MIRROR_CAND_ANSWER = 'zhibo:mirror:cand:answer';
+  var mirrorRx = { pc: null, id: null, timer: null, candTimer: null, candSeen: 0 };
+
+  function readJson(key, fallback) {
+    try {
+      var raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) { return fallback; }
+  }
+
+  function startMirror() {
+    setPoster(true);
+    posterSub.textContent = '等待主播画面…';
+    setStatus('等待画面');
+    pollMirrorOffer();
+    mirrorRx.timer = setInterval(pollMirrorOffer, 1000);
+    window.addEventListener('storage', function (e) {
+      if (e.key === MIRROR_OFFER_KEY) pollMirrorOffer();
+    });
+  }
+
+  function pollMirrorOffer() {
+    var raw = null;
+    try { raw = localStorage.getItem(MIRROR_OFFER_KEY); } catch (e) {}
+    if (!raw) {
+      if (mirrorRx.pc) {
+        try { mirrorRx.pc.close(); } catch (e) {}
+        mirrorRx.pc = null;
+        mirrorRx.id = null;
+        clearInterval(mirrorRx.candTimer);
+        mirrorRx.candTimer = null;
+        setStatus('等待画面');
+        setPoster(true);
+        posterSub.textContent = '等待主播画面…';
+      }
+      return;
+    }
+    var data;
+    try { data = JSON.parse(raw); } catch (e) { return; }
+    if (!data || !data.sdp || !data.id) return;
+    if (mirrorRx.id === data.id && mirrorRx.pc) return;
+    acceptMirrorOffer(data);
+  }
+
+  async function acceptMirrorOffer(data) {
+    if (mirrorRx.pc) { try { mirrorRx.pc.close(); } catch (e) {} mirrorRx.pc = null; }
+    clearInterval(mirrorRx.candTimer);
+    mirrorRx.candTimer = null;
+
+    var pc = new RTCPeerConnection({ iceServers: [] });
+    mirrorRx.pc = pc;
+    mirrorRx.id = data.id;
+    mirrorRx.candSeen = 0;
+
+    try { localStorage.setItem(MIRROR_CAND_ANSWER, '[]'); } catch (e) {}
+    pc.onicecandidate = function (e) {
+      if (!e.candidate) return;
+      var arr = readJson(MIRROR_CAND_ANSWER, []);
+      arr.push(e.candidate.toJSON());
+      try { localStorage.setItem(MIRROR_CAND_ANSWER, JSON.stringify(arr)); } catch (err) {}
+    };
+
+    pc.ontrack = function (ev) {
+      var s = (ev.streams && ev.streams[0]) || new MediaStream([ev.track]);
+      video.srcObject = s;
+      video.muted = true;
+      player.classList.add('started');
+      setPoster(false);
+      setSpinner(false);
+      setStatus('镜像中');
+      var p = video.play();
+      if (p && p.catch) p.catch(function () {});
+    };
+    pc.onconnectionstatechange = function () {
+      if (pc.connectionState === 'connected') setStatus('镜像已连接');
+      else if (pc.connectionState === 'failed') setStatus('镜像断开');
+    };
+
+    try {
+      await pc.setRemoteDescription({ type: 'offer', sdp: data.sdp });
+      var answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      try {
+        localStorage.setItem(MIRROR_ANSWER_KEY, JSON.stringify({
+          id: data.id,
+          sdp: pc.localDescription.sdp,
+          ts: Date.now()
+        }));
+      } catch (e) {}
+      mirrorRx.candTimer = setInterval(addOfferCandidates, 700);
+    } catch (e) {
+      setStatus('镜像连接失败');
+    }
+  }
+
+  function addOfferCandidates() {
+    if (!mirrorRx.pc) return;
+    var arr = readJson(MIRROR_CAND_OFFER, []);
+    for (var i = mirrorRx.candSeen; i < arr.length; i++) {
+      try { mirrorRx.pc.addIceCandidate(arr[i]).catch(function () {}); } catch (e) {}
+    }
+    mirrorRx.candSeen = arr.length;
+  }
+
+  /* ---------- 事件绑定 ---------- */
+  poster.addEventListener('click', playVideo);
+  poster.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playVideo(); }
+  });
+  $('btnBigPlay').addEventListener('click', function (e) { e.stopPropagation(); playVideo(); });
+  $('centerPlay').addEventListener('click', playVideo);
+  video.addEventListener('click', togglePlay);
+  video.addEventListener('dblclick', toggleFullscreen);
+
+  video.addEventListener('play', function () {
+    player.classList.add('playing');
+    updatePlayIcon();
+    setPoster(false);
+    setSpinner(false);
+    setStatus(isVod ? '播放中' : '直播中');
+  });
+  video.addEventListener('pause', function () {
+    player.classList.remove('playing');
+    updatePlayIcon();
+  });
+  video.addEventListener('playing', function () { setSpinner(false); player.classList.add('playing'); });
+  video.addEventListener('waiting', function () { setSpinner(true); });
+  video.addEventListener('canplay', function () { setSpinner(false); });
+  video.addEventListener('seeking', function () { if (!isVod) setSpinner(true); });
+  video.addEventListener('loadedmetadata', function () {
+    setSpinner(false);
+    isVod = !isHlsUrl(currentUrl) && isFinite(video.duration) && video.duration > 0;
+    player.classList.toggle('is-vod', isVod);
+    seek.disabled = !isVod;
+    updateTimeDisplay();
+    if (isVod) setStatus('播放中');
+  });
+  video.addEventListener('timeupdate', function () {
+    if (!isVod || !isFinite(video.duration) || video.duration <= 0) return;
+    seek.value = String(Math.round((video.currentTime / video.duration) * 1000));
+    updateTimeDisplay();
+  });
+  video.addEventListener('ended', function () {
+    player.classList.remove('playing');
+    updatePlayIcon();
+  });
+  video.addEventListener('error', function () {
+    if (!video.getAttribute('src') && !video.currentSrc) return;
+    setError('视频加载失败：请检查地址是否为可直接访问的媒体直链（网页分享链接通常无法直接播放）。');
+    setStatus('加载失败');
+  });
+
+  seek.addEventListener('input', function () {
+    if (!isVod || !isFinite(video.duration) || video.duration <= 0) return;
+    video.currentTime = (Number(seek.value) / 1000) * video.duration;
+  });
+
+  btnPlay.addEventListener('click', togglePlay);
+  btnMute.addEventListener('click', toggleMute);
+  volBar.addEventListener('input', function () { applyVolume(Number(volBar.value)); });
+  btnFull.addEventListener('click', toggleFullscreen);
+  btnDanmaku.addEventListener('click', function () {
+    user.danmaku = !user.danmaku;
+    saveUser();
+    syncUI();
+  });
+  btnSettings.addEventListener('click', openUser);
+  btnSettingsTop.addEventListener('click', openUser);
+  $('btnCloseUser').addEventListener('click', closeUser);
+  $('btnCancelUser').addEventListener('click', closeUser);
+  $('btnSaveUser').addEventListener('click', saveUserFromModal);
+  $('btnClearUser').addEventListener('click', clearUserData);
+  $('btnRetry').addEventListener('click', retry);
+  $('btnErrorRefresh').addEventListener('click', function () { location.reload(); });
+  userModal.addEventListener('click', function (e) { if (e.target === userModal) closeUser(); });
+  userNickInput.addEventListener('input', function () {
+    var preview = userNickInput.value.trim() || USER_DEFAULTS.nick;
+    userNameView.textContent = preview;
+    userAvatar.textContent = preview.charAt(0) || '观';
+  });
+
+  chatForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    sendMessage(chatInput.value);
+  });
+
+  dmSwitch.addEventListener('change', function () {
+    user.danmaku = dmSwitch.checked;
+    saveUser();
+    syncUI();
+  });
+
+  $('btnClear').addEventListener('click', function () {
+    chatList.innerHTML = '';
+    addChat({ system: true, text: '聊天已清屏' });
+  });
+
+  document.addEventListener('fullscreenchange', syncFullscreenIcon);
+
+  /* 控制条自动隐藏 */
+  function wakeControls() {
+    player.classList.remove('idle');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(function () {
+      if (!video.paused) player.classList.add('idle');
+    }, 2800);
+  }
+  player.addEventListener('pointermove', wakeControls);
+  player.addEventListener('pointerleave', function () { player.classList.remove('idle'); });
+  player.addEventListener('pointerdown', wakeControls);
+
+  /* 快捷键 */
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    var typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    var isButton = t && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'SELECT');
+    if (e.key === 'Escape' && cartSheet.classList.contains('open')) { closeCart(); return; }
+    if (e.key === 'Escape' && userModal.classList.contains('open')) { closeUser(); return; }
+    if (typing) return;
+    if ((e.code === 'Space' && !isButton) || e.key === 'k' || e.key === 'K') { e.preventDefault(); togglePlay(); }
+    else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFullscreen(); }
+    else if (e.key === 'm' || e.key === 'M') { e.preventDefault(); toggleMute(); }
+    else if (e.key === 'd' || e.key === 'D') { e.preventDefault(); btnDanmaku.click(); }
+  });
+
+  /* 页面隐藏时暂停模拟，回来继续 */
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && settings.simulate) scheduleSim(1800);
+  });
+
+  /* ---------- 初始化 ---------- */
+  syncUI();
+  applyVolume(typeof user.volume === 'number' ? user.volume : 0.8);
+  startSim();
+
+  /* 分享 / 服务号菜单带过来的标题 */
+  if (paramTitle) {
+    document.title = paramTitle + ' · 直播';
+    var h1 = document.querySelector('.title-row h1');
+    var posterTitle = document.querySelector('.poster-title');
+    if (h1) h1.textContent = paramTitle;
+    if (posterTitle) posterTitle.textContent = paramTitle;
+  }
+
+  if (paramMirror) {
+    startMirror();
+  } else if (isHlsUrl(currentUrl) && !window.Hls) {
+    posterSub.textContent = '正在准备播放器…';
+    setStatus('加载播放器…');
+    loadHls(function () { prepareStream(currentUrl); });
+  } else {
+    prepareStream(currentUrl);
+  }
+
+  addChat({ system: true, text: '欢迎来到直播间' });
+  addChat({ system: true, text: '输入消息即可发送，勾选「弹幕」会同时显示在画面上' });
+  initChat();
+  initCart();
+
+  setTimeout(function () {
+    if (!user.danmaku) return;
+    var seeds = ['画面好清晰', '主播在吗', '666', '前排打卡'];
+    seeds.forEach(function (text, i) {
+      setTimeout(function () { spawnDanmaku(text); }, i * 800);
+    });
+  }, 1400);
+
+  updatePlayIcon();
+  syncFullscreenIcon();
+})();
+</script>
+</body>
+</html>
