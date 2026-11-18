@@ -32,6 +32,7 @@
   .brand p{margin:2px 0 0; color:var(--sub); font-size:12.5px}
   .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:16px}
   @media (max-width:720px){ .grid{grid-template-columns:1fr} }
+  a.card.wide{grid-column:1/-1; background:linear-gradient(125deg,rgba(180,75,255,.22),rgba(255,61,139,.14)); border-color:rgba(180,75,255,.4)}
   a.card{
     display:block; text-decoration:none; color:inherit;
     background:var(--card); border:1px solid var(--line); border-radius:18px;
@@ -57,6 +58,13 @@
     </div>
 
     <div class="grid">
+      <a class="card wide" href="app.html">
+        <span class="tag">手机 · 服务号</span>
+        <h2>手机版 H5 首页</h2>
+        <p>首页 / 商城 / 我的 三个 Tab，紫色夜场风格。微信菜单和朋友圈分享用这个入口最合适。</p>
+        <div class="arrow">打开手机版 →</div>
+      </a>
+
       <a class="card" href="直播.html">
         <span class="tag">观众</span>
         <h2>进入直播间</h2>
