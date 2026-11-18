@@ -1892,6 +1892,11 @@
     window.addEventListener('storage', function (e) {
       if (e.key === MIRROR_OFFER_KEY) pollMirrorOffer();
     });
+    setTimeout(function () {
+      if (!mirrorRx.pc && !mirrorRx.id) {
+        posterSub.textContent = '没有发现主播镜像：请确认开播页在同一浏览器、已开摄像头、且没有点「结束直播」';
+      }
+    }, 4000);
   }
 
   function pollMirrorOffer() {
@@ -1914,6 +1919,7 @@
     try { data = JSON.parse(raw); } catch (e) { return; }
     if (!data || !data.sdp || !data.id) return;
     if (mirrorRx.id === data.id && mirrorRx.pc) return;
+    posterSub.textContent = '已发现主播，正在连接…';
     acceptMirrorOffer(data);
   }
 
@@ -1965,6 +1971,8 @@
       mirrorRx.candTimer = setInterval(addOfferCandidates, 700);
     } catch (e) {
       setStatus('镜像连接失败');
+      posterSub.textContent = '镜像连接失败：' + (e && e.message ? e.message : e);
+      try { console.warn('[mirror] accept failed', e); } catch (err) {}
     }
   }
 
