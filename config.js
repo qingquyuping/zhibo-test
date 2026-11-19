@@ -24,7 +24,7 @@ window.ZHIBO_CONFIG = {
   domain: 'qweer.cn',
   publicBase: 'https://qweer.cn',
 
-  apiBase: 'https://qweer.cn/api',   // 全站接口地址（Cloudflare Pages Functions）
+  apiBase: 'https://chat.qweer.cn',   // 全站接口地址（Cloudflare Pages Functions）
 
   streamUrl: '',
   room: 'live',
