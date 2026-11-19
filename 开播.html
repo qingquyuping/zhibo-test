@@ -592,7 +592,8 @@
     room: '',
     viewers: 0,
     productsApi: '',
-    mirror: true
+    mirror: true,
+    wsBase: ''
   };
 
   var cfg = loadConfig();
@@ -1162,6 +1163,7 @@
     if (cfg.mirror !== false) q.push('mirror=1');
     if (cfg.productsApi || CFG.apiBase) q.push('api=' + encodeURIComponent(goodsApiBase()));
     if (CFG.chatPoll || /tcloudbaseapp\.com|service\.tcloudbase\.com/.test(chatBase())) q.push('chatpoll=1');
+    if (chatWsBase()) q.push('ws=' + encodeURIComponent(chatWsBase()));
     return url + '?' + q.join('&');
   }
 
@@ -1174,7 +1176,7 @@
   }
 
   /* ---------- 弹幕面板 ---------- */
-  var chat = { mode: 'off', es: null, connected: false, fail: 0, count: 0, seen: {}, since: 0, pollTimer: null };
+  var chat = { mode: 'off', es: null, ws: null, connected: false, fail: 0, count: 0, seen: {}, since: 0, pollTimer: null };
   var DM_COLORS = ['#7dd3fc', '#fca5a5', '#c4b5fd', '#86efac', '#fcd34d', '#f9a8d4', '#93c5fd', '#5eead4'];
 
   function dmColor(nick) {
@@ -1283,6 +1285,7 @@
   function stopChat() {
     if (chat.es) { try { chat.es.close(); } catch (e) {} chat.es = null; }
     if (chat.pollTimer) { clearInterval(chat.pollTimer); chat.pollTimer = null; }
+    if (chat.ws) { try { chat.ws.close(); } catch (e) {} chat.ws = null; }
     chat.connected = false;
     chat.mode = 'off';
     window.removeEventListener('storage', onBusStorage);
@@ -1291,13 +1294,81 @@
 
   function startChat() {
     stopChat();
-    if (chatBase()) {
+    if (chatWsBase()) {
+      startWsChat();
+    } else if (chatBase()) {
       if (usePollingChat()) startPollingChat();
       else startServer();
     } else {
       startBus();
     }
     renderViewerLink();
+  }
+
+  /* ---------- 实时弹幕（WebSocket） ---------- */
+  function chatWsBase() {
+    var q = '';
+    try { q = new URLSearchParams(location.search).get('ws') || ''; } catch (e) {}
+    return String(q || cfg.wsBase || CFG.wsBase || '').trim().replace(/\/+$/, '');
+  }
+  function hostId() {
+    var id = null;
+    try { id = localStorage.getItem('zhibo:hostId'); } catch (e) {}
+    if (!id) {
+      id = 'host-' + Math.random().toString(36).slice(2, 10);
+      try { localStorage.setItem('zhibo:hostId', id); } catch (e) {}
+    }
+    return id;
+  }
+  function chatWsUrl() {
+    var base = chatWsBase();
+    if (!base) return '';
+    if (!/\/ws$/.test(base)) base += '/ws';
+    return base + '?room=' + encodeURIComponent(chatRoom()) +
+      '&role=host&clientId=' + encodeURIComponent(hostId());
+  }
+  function startWsChat() {
+    chat.mode = 'ws';
+    chat.connected = false;
+    chat.fail = 0;
+    setDmStatus('preview', '连接中');
+    openWsChat();
+  }
+  function openWsChat() {
+    var url = chatWsUrl();
+    if (!url) return;
+    var ws;
+    try { ws = new WebSocket(url); } catch (e) { return; }
+    chat.ws = ws;
+
+    ws.onopen = function () {
+      chat.connected = true;
+      chat.fail = 0;
+      setDmStatus('live', '已连接');
+    };
+    ws.onmessage = function (ev) {
+      var d;
+      try { d = JSON.parse(ev.data); } catch (e) { return; }
+      if (!d) return;
+      if (d.type === 'hello') {
+        if (typeof d.online === 'number') dmOnline.textContent = '真实在线 ' + d.online + ' 人';
+        if (Array.isArray(d.history)) d.history.forEach(dmAdd);
+        return;
+      }
+      if (d.type === 'msg' && d.msg) { dmAdd(d.msg); return; }
+      if (d.type === 'presence') {
+        dmOnline.textContent = '真实在线 ' + (Number(d.online) || 0) + ' 人';
+      }
+    };
+    ws.onclose = function () {
+      chat.connected = false;
+      if (chat.mode !== 'ws') return;
+      chat.fail = (chat.fail || 0) + 1;
+      setDmStatus('error', '重连中');
+      var delay = Math.min(5000, 1000 * Math.pow(1.6, chat.fail));
+      setTimeout(function () { if (chat.mode === 'ws') openWsChat(); }, delay);
+    };
+    ws.onerror = function () {};
   }
 
   /* 云开发（HTTP 云函数）没有长连接，改用轮询 */

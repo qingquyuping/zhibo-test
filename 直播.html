@@ -984,6 +984,7 @@
   var paramTitle = query.title || '';
   var paramChat = query.chat || '';
   var paramChatPoll = query.chatpoll === '1' || query.transport === 'poll';
+  var paramWs = query.ws || '';
   var paramMirror = query.mirror === '1' || query.mirror === 'true';
   var paramApi = query.api || '';
   var paramViewers = Number(query.viewers || 0);
@@ -991,6 +992,8 @@
   var currentUrl = paramStream || CFG.streamUrl || settings.url;
 
   var hls = null;
+  var flvPlayer = null;
+  var flvLoading = false;
   var isVod = false;
   var netRetry = 0;
   var mediaRetry = 0;
@@ -1090,6 +1093,47 @@
 
   /* ---------- 播放器核心 ---------- */
   function isHlsUrl(u) { return /\.m3u8(\?|#|$)/i.test(u || ''); }
+  function isFlvUrl(u) { return /\.flv(\?|#|$)/i.test(u || ''); }
+
+  function loadFlv(done) {
+    if (window.flvjs) { done(null); return; }
+    if (flvLoading) { setTimeout(function () { loadFlv(done); }, 300); return; }
+    flvLoading = true;
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/flv.js@1.6.2/dist/flv.min.js';
+    s.onload = function () { flvLoading = false; done(null); };
+    s.onerror = function () { flvLoading = false; done(new Error('flv.js 加载失败')); };
+    document.head.appendChild(s);
+    setTimeout(function () {
+      if (!window.flvjs) { flvLoading = false; done(new Error('flv.js 加载超时')); }
+    }, 8000);
+  }
+
+  function playFlv(url) {
+    loadFlv(function (err) {
+      if (err || !window.flvjs || !window.flvjs.isSupported()) {
+        setError('当前浏览器不支持 FLV 直播，请用最新版 Chrome/Edge 或换 HLS 地址。');
+        setStatus('不支持 FLV');
+        setSpinner(false);
+        return;
+      }
+      try {
+        flvPlayer = window.flvjs.createPlayer(
+          { type: 'flv', url: url, isLive: true, hasAudio: true, hasVideo: true },
+          { enableStashBuffer: false, stashInitialSize: 128, autoCleanupSourceBuffer: true }
+        );
+        flvPlayer.attachMediaElement(video);
+        flvPlayer.load();
+        var p = flvPlayer.play();
+        if (p && p.catch) p.catch(function () {});
+        setStatus('FLV 直播流');
+      } catch (e) {
+        setError('FLV 播放失败：' + (e && e.message ? e.message : e));
+        setStatus('播放失败');
+        setSpinner(false);
+      }
+    });
+  }
 
   /* 依次尝试多个来源加载 hls.js，全部失败时回调 false（页面降级但不报错） */
   var hlsLoading = false;
@@ -1135,6 +1179,10 @@
       try { hls.destroy(); } catch (e) {}
       hls = null;
     }
+    if (flvPlayer) {
+      try { flvPlayer.destroy(); } catch (e) {}
+      flvPlayer = null;
+    }
     if (video.getAttribute('src')) {
       video.pause();
       video.removeAttribute('src');
@@ -1160,9 +1208,15 @@
       return false;
     }
 
-    posterSub.textContent = isHlsUrl(url) ? 'HLS 直播流 · 点击播放' : '媒体直链 · 点击播放';
+    posterSub.textContent = isHlsUrl(url) ? 'HLS 直播流 · 点击播放'
+      : isFlvUrl(url) ? 'FLV 直播流 · 点击播放' : '媒体直链 · 点击播放';
     setStatus('连接中…');
     setSpinner(true);
+
+    if (isFlvUrl(url)) {
+      playFlv(url);
+      return true;
+    }
 
     if (isHlsUrl(url)) {
       if (!window.Hls) {
@@ -1357,7 +1411,11 @@
     var text = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
     if (!text) return;
 
-    if (chat.mode === 'server' && chat.connected) {
+    if (chat.mode === 'ws' && chat.connected) {
+      if (!wsSend(text)) {
+        addChat({ system: true, text: '实时连接已断开，正在重连…' });
+      }
+    } else if (chat.mode === 'server' && chat.connected) {
       sendToServer(text);
     } else if (chat.mode === 'poll' && chat.connected) {
       sendToCloud(text);
@@ -1390,6 +1448,9 @@
   var chat = {
     mode: 'off',
     es: null,
+    ws: null,
+    wsTimer: null,
+    wsFails: 0,
     connected: false,
     online: 0,
     fail: 0,
@@ -1523,13 +1584,18 @@
   function disconnectChat(silent) {
     if (chat.es) { try { chat.es.close(); } catch (e) {} chat.es = null; }
     if (chat.pollTimer) { clearInterval(chat.pollTimer); chat.pollTimer = null; }
+    if (chat.ws) { try { chat.ws.close(); } catch (e) {} chat.ws = null; }
+    if (chat.wsTimer) { clearInterval(chat.wsTimer); chat.wsTimer = null; }
     chat.connected = false;
     chat.mode = 'off';
     window.removeEventListener('storage', onBusStorage);
     if (!silent) setChatChip('bus', '本机演示');
   }
   function initChat() {
-    if (chatBase()) {
+    if (chatWsBase()) {
+      startWs();
+      addChat({ system: true, text: '已接入实时弹幕 · 房间 ' + chatRoom() });
+    } else if (chatBase()) {
       if (usePollingChat()) {
         startPolling();
         addChat({ system: true, text: '已接入云开发弹幕 · 房间 ' + chatRoom() });
@@ -1541,6 +1607,100 @@
       enableBus();
       addChat({ system: true, text: '本机互通模式：同一台电脑另开一个观看页，就能互相看到弹幕' });
     }
+  }
+
+  /* ---------- 实时弹幕（WebSocket） ---------- */
+  function chatWsBase() {
+    return String(paramWs || CFG.wsBase || '').trim().replace(/\/+$/, '');
+  }
+  function chatWsUrl() {
+    var base = chatWsBase();
+    if (!base) return '';
+    if (!/\/ws$/.test(base)) base += '/ws';
+    return base + '?room=' + encodeURIComponent(chatRoom()) +
+      '&role=viewer&clientId=' + encodeURIComponent(chat.clientId);
+  }
+  function startWs() {
+    disconnectChat(true);
+    chat.mode = 'ws';
+    chat.connected = false;
+    chat.wsFails = 0;
+    setChatChip('warn', '连接中');
+    openWs();
+  }
+  function openWs() {
+    var url = chatWsUrl();
+    if (!url) return;
+    var ws;
+    try { ws = new WebSocket(url); } catch (e) { onWsClosed(); return; }
+    chat.ws = ws;
+
+    ws.onopen = function () {
+      chat.connected = true;
+      chat.wsFails = 0;
+      setChatChip('ok', '实时连接');
+      startWsHeartbeat();
+    };
+    ws.onmessage = function (ev) {
+      var data;
+      try { data = JSON.parse(ev.data); } catch (e) { return; }
+      if (!data) return;
+      if (data.type === 'hello') {
+        chat.online = Number(data.online) || 0;
+        if (Array.isArray(data.history)) {
+          data.history.forEach(function (m) {
+            if (!m || !m.id || chat.seen[m.id]) return;
+            chat.seen[m.id] = 1;
+            deliver(m);
+          });
+        }
+        return;
+      }
+      if (data.type === 'msg' && data.msg) {
+        var m = data.msg;
+        if (m.id && chat.seen[m.id]) return;
+        if (m.id) chat.seen[m.id] = 1;
+        deliver(m);
+        return;
+      }
+      if (data.type === 'presence') { chat.online = Number(data.online) || 0; return; }
+      if (data.type === 'error' && data.error) addChat({ system: true, text: data.error });
+    };
+    ws.onclose = onWsClosed;
+    ws.onerror = function () {};
+  }
+  function onWsClosed() {
+    chat.connected = false;
+    stopWsHeartbeat();
+    if (chat.mode !== 'ws') return;
+    chat.wsFails = (chat.wsFails || 0) + 1;
+    if (chat.wsFails >= 3 && chatBase()) {
+      setChatChip('warn', '切换轮询');
+      addChat({ system: true, text: '实时连接不可用，已切到轮询模式' });
+      startPolling();
+      return;
+    }
+    setChatChip('err', '重连中');
+    var delay = Math.min(5000, 1000 * Math.pow(1.6, chat.wsFails));
+    setTimeout(function () { if (chat.mode === 'ws') openWs(); }, delay);
+  }
+  function startWsHeartbeat() {
+    stopWsHeartbeat();
+    chat.wsTimer = setInterval(function () {
+      if (chat.ws && chat.ws.readyState === 1) {
+        try { chat.ws.send(JSON.stringify({ type: 'ping' })); } catch (e) {}
+      }
+    }, 20000);
+  }
+  function stopWsHeartbeat() {
+    if (chat.wsTimer) { clearInterval(chat.wsTimer); chat.wsTimer = null; }
+  }
+  function wsSend(text) {
+    if (!chat.ws || chat.ws.readyState !== 1) return false;
+    try {
+      chat.ws.send(JSON.stringify({ type: 'send', nick: user.nick, text: text, clientId: chat.clientId }));
+      return true;
+    } catch (e) { return false; }
   }
 
   /* 云开发（HTTP 云函数）不能长连接，改用轮询 */

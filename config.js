@@ -15,6 +15,9 @@
  * mirror    开播页默认开启「本机镜像到观看页」。
  * chatPoll  true = 弹幕用 3 秒轮询（Cloudflare Pages / 云函数）；
  *           false = 用 SSE 长连接（本机或自建 chat-server.js）。
+ * wsBase    弹幕 WebSocket 服务地址（几百人以上推荐）：
+ *           例 wss://chat.qweer.cn 或 ws://127.0.0.1:8787
+ *           留空则走上面的轮询/SSE。
  */
 window.ZHIBO_CONFIG = {
   siteName: '聚光直播',
@@ -27,5 +30,6 @@ window.ZHIBO_CONFIG = {
   room: 'live',
   viewers: 12800,
   mirror: true,
-  chatPoll: true
+  chatPoll: true,
+  wsBase: 'wss://superintendent-classifieds-tennis-vista.trycloudflare.com'
 };
