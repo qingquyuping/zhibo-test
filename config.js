@@ -31,5 +31,5 @@ window.ZHIBO_CONFIG = {
   viewers: 12800,
   mirror: true,
   chatPoll: true,
-  wsBase: 'wss://superintendent-classifieds-tennis-vista.trycloudflare.com'
+  wsBase: 'wss://chat.qweer.cn'
 };
